@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rebeca · Control de planilla</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#EEF1F6;
+    --surface:#FFFFFF;
+    --ink:#1B2A4A;
+    --ink-soft:#5B6577;
+    --primary:#0F6E5D;
+    --primary-dark:#0B5346;
+    --amber:#D98E2B;
+    --amber-bg:#FCF2E1;
+    --green:#2F8A5B;
+    --green-bg:#E8F5EE;
+    --red:#C0392B;
+    --red-bg:#FBEAE8;
+    --border:#DDE2EA;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, sans-serif;
+    --display: 'Space Grotesk', var(--sans);
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
+  h1,h2,h3{font-family:var(--display);margin:0;}
+  button{font-family:var(--sans);cursor:pointer;}
+  input,select,textarea{font-family:var(--sans);}
+
+  /* ---- Connect gate ---- */
+  #gate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .gate-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:36px;max-width:420px;width:100%;box-shadow:0 1px 3px rgba(27,42,74,.06);}
+  .gate-card h1{font-size:22px;color:var(--ink);margin-bottom:6px;}
+  .gate-card p{color:var(--ink-soft);font-size:14px;line-height:1.5;margin:8px 0 20px;}
+  .gate-card label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--ink);}
+  .gate-card input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:14px;}
+  .gate-card .field-row{display:flex;gap:10px;}
+  .gate-card .field-row > div{flex:1;}
+  .btn-primary{background:var(--primary);color:#fff;border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:600;width:100%;}
+  .btn-primary:hover{background:var(--primary-dark);}
+  #gate-error{color:var(--red);font-size:13px;margin-top:10px;display:none;}
+
+  /* ---- App shell ---- */
+  #app{display:none;min-height:100vh;}
+  .shell{display:grid;grid-template-columns:220px 1fr;min-height:100vh;}
+  .sidebar{background:var(--ink);color:#fff;padding:22px 14px;}
+  .brand{font-family:var(--display);font-size:17px;font-weight:700;padding:0 10px 22px;letter-spacing:.2px;}
+  .brand span{display:block;font-family:var(--sans);font-weight:400;font-size:11px;color:#9FB0C9;margin-top:2px;letter-spacing:.5px;text-transform:uppercase;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:14px;color:#C6D0E2;margin-bottom:4px;transition:background .12s;}
+  .nav-item:hover{background:rgba(255,255,255,.06);}
+  .nav-item.active{background:var(--primary);color:#fff;}
+  .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;}
+  .sidebar-foot{margin-top:26px;padding:10px 12px;font-size:11px;color:#7C8CA6;border-top:1px solid rgba(255,255,255,.1);padding-top:14px;}
+
+  .main{padding:28px 34px;overflow-x:auto;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
+  .topbar h2{font-size:21px;}
+  .topbar .sub{color:var(--ink-soft);font-size:13px;margin-top:2px;}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px;}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .toolbar select, .toolbar input{padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;}
+
+  .btn{border:1px solid var(--border);background:#fff;color:var(--ink);padding:8px 14px;border-radius:7px;font-size:13px;font-weight:500;}
+  .btn:hover{background:#F5F7FA;}
+  .btn-add{background:var(--primary);color:#fff;border:none;}
+  .btn-add:hover{background:var(--primary-dark);}
+  .btn-danger{color:var(--red);}
+  .btn-danger:hover{background:var(--red-bg);}
+  .btn-sm{padding:5px 10px;font-size:12px;}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:var(--ink-soft);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--border);}
+  td{padding:10px 10px;border-bottom:1px solid #F0F2F6;}
+  tr:hover td{background:#FAFBFD;}
+  .mono{font-family:var(--mono);}
+  .empty-state{padding:36px 10px;text-align:center;color:var(--ink-soft);font-size:14px;}
+
+  .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600;}
+  .pill-green{background:var(--green-bg);color:var(--green);}
+  .pill-amber{background:var(--amber-bg);color:var(--amber);}
+  .pill-red{background:var(--red-bg);color:var(--red);}
+  .pill-gray{background:#EEF0F4;color:var(--ink-soft);}
+
+  /* ---- Punch ticket (signature element for asistencia) ---- */
+  .tickets{display:flex;flex-direction:column;gap:10px;}
+  .ticket{display:grid;grid-template-columns:1fr auto auto auto auto;gap:16px;align-items:center;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px 16px;position:relative;}
+  .ticket::before,.ticket::after{content:"";position:absolute;width:14px;height:14px;background:var(--bg);border-radius:50%;top:50%;transform:translateY(-50%);}
+  .ticket::before{left:-7px;}
+  .ticket::after{right:-7px;}
+  .ticket .emp{font-weight:600;font-size:13.5px;}
+  .ticket .emp .sub{display:block;font-weight:400;color:var(--ink-soft);font-size:11.5px;}
+  .ticket .time{font-family:var(--mono);font-size:14px;text-align:center;}
+  .ticket .time .lab{display:block;font-family:var(--sans);font-size:10px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;}
+  .ticket .horas{font-family:var(--mono);font-weight:600;font-size:15px;color:var(--primary);text-align:center;}
+
+  /* ---- Modal ---- */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(27,42,74,.45);align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .overlay.show{display:flex;}
+  .modal{background:#fff;border-radius:14px;padding:26px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;}
+  .modal h3{font-size:18px;margin-bottom:16px;}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .form-grid .full{grid-column:1/-1;}
+  .form-grid label{display:block;font-size:12.5px;font-weight:600;margin-bottom:4px;color:var(--ink-soft);}
+  .form-grid input,.form-grid select{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:7px;font-size:13.5px;}
+  .form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+  .check-row{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:500;color:var(--ink);}
+  .check-row input{width:auto;}
+
+  textarea.bulk{width:100%;min-height:110px;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:var(--mono);font-size:12.5px;}
+
+  .stat-row{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;}
+  .stat{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 18px;min-width:130px;}
+  .stat .n{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--ink);}
+  .stat .l{font-size:11.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+
+  #toast-wrap{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:80;}
+  .toast{background:var(--ink);color:#fff;padding:11px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.18);animation:in .18s ease;}
+  .toast.err{background:var(--red);}
+  .toast.ok{background:var(--green);}
+  @keyframes in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+
+  .tab-section{display:none;}
+  .tab-section.active{display:block;}
+
+  @media (max-width:820px){
+    .shell{grid-template-columns:1fr;}
+    .sidebar{display:flex;overflow-x:auto;gap:6px;padding:12px;}
+    .brand{display:none;}
+    .sidebar-foot{display:none;}
+    .nav-item{white-space:nowrap;}
+    .main{padding:18px;}
+    .form-grid{grid-template-columns:1fr;}
+    .ticket{grid-template-columns:1fr;text-align:left;gap:6px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ GATE: connect to GitHub ============ -->
+<div id="gate">
+  <div class="gate-card">
+    <h1>Rebeca · Control de planilla</h1>
+    <p>Pega tu token de acceso de GitHub para leer y guardar los datos del repositorio <strong>dsantosg94/Rebeca-rrhh</strong>. El token no se guarda en ningún lado — solo vive en esta pestaña mientras la tengas abierta.</p>
+    <label for="tokenInput">Token de acceso (fine-grained, permiso Contents: Read and write)</label>
+    <input type="password" id="tokenInput" placeholder="github_pat_...">
+    <label class="check-row" style="margin:-6px 0 16px;">
+      <input type="checkbox" id="rememberToken" checked> Recordar en este navegador (no pedir de nuevo aquí)
+    </label>
+    <button class="btn-primary" onclick="connect()">Conectar y cargar datos</button>
+    <div id="gate-error"></div>
+    <div id="gate-hint" style="font-size:12px;color:var(--ink-soft);margin-top:12px;display:none;">
+      Nota: "Recordar" solo funciona una vez que abras esta página desde tu link publicado de GitHub Pages — dentro de una vista previa no se guarda.
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div class="shell">
+    <div class="sidebar">
+      <div class="brand">Rebeca RRHH<span><span class="conn-dot"></span>Conectado</span></div>
+      <div class="nav-item active" data-tab="empleados" onclick="switchTab('empleados')">👤 Empleados</div>
+      <div class="nav-item" data-tab="herramientas" onclick="switchTab('herramientas')">🧰 Herramientas</div>
+      <div class="nav-item" data-tab="asistencia" onclick="switchTab('asistencia')">🎟️ Asistencia</div>
+      <div class="nav-item" data-tab="planilla" onclick="switchTab('planilla')">💵 Planilla</div>
+      <div class="sidebar-foot">dsantosg94/Rebeca-rrhh<br>rama main<br><a href="#" onclick="olvidarToken();return false;" style="color:#C6D0E2;">Olvidar token guardado</a></div>
+    </div>
+
+    <div class="main">
+
+      <!-- EMPLEADOS -->
+      <div class="tab-section active" id="tab-empleados">
+        <div class="topbar">
+          <div><h2>Empleados</h2><div class="sub">Inventario de personal, supervisores y tipo de pago</div></div>
+          <button class="btn btn-add" onclick="openEmpForm()">+ Nuevo empleado</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="toolbar">
+              <select id="fEmpresa" onchange="renderEmpleados()"><option value="">Todas las empresas</option></select>
+              <select id="fRol" onchange="renderEmpleados()">
+                <option value="">Todos los roles</option>
+                <option value="sup">Supervisores</option>
+                <option value="emp">Empleados</option>
+              </select>
+              <select id="fEstado" onchange="renderEmpleados()">
+                <option value="">Todos los estados</option>
+                <option value="1">Activos</option>
+                <option value="0">Inactivos</option>
+              </select>
+            </div>
+          </div>
+          <div id="empTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- HERRAMIENTAS -->
+      <div class="tab-section" id="tab-herramientas">
+        <div class="topbar">
+          <div><h2>Herramientas</h2><div class="sub">Equipo asignado a cada empleado</div></div>
+          <button class="btn btn-add" onclick="openHerrForm()">+ Nueva herramienta</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="toolbar">
+              <select id="fHerrEstado" onchange="renderHerramientas()">
+                <option value="">Todos los estados</option>
+                <option value="asignada">Asignadas</option>
+                <option value="disponible">Disponibles</option>
+              </select>
+            </div>
+          </div>
+          <div id="herrTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- ASISTENCIA -->
+      <div class="tab-section" id="tab-asistencia">
+        <div class="topbar">
+          <div><h2>Asistencia</h2><div class="sub">Marcas de entrada y salida</div></div>
+          <button class="btn btn-add" onclick="openAsisForm()">+ Marcar asistencia</button>
+        </div>
+        <div class="panel">
+          <h3 style="font-size:14px;margin-bottom:8px;">Importar varias filas de golpe</h3>
+          <div class="sub" style="margin-bottom:8px;">Una fila por línea: <span class="mono">nombre o apellido, fecha AAAA-MM-DD, hora entrada HH:MM, hora salida HH:MM</span></div>
+          <textarea class="bulk" id="bulkAsis" placeholder="Maria Lopez, 2026-08-20, 08:00, 16:00
+Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
+          <div style="margin-top:10px;"><button class="btn btn-add" onclick="importBulkAsistencia()">Importar filas</button></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="toolbar">
+              <select id="fAsisEmp" onchange="renderAsistencia()"><option value="">Todos los empleados</option></select>
+              <input type="date" id="fAsisDesde" onchange="renderAsistencia()">
+              <input type="date" id="fAsisHasta" onchange="renderAsistencia()">
+            </div>
+          </div>
+          <div id="asisTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- PLANILLA -->
+      <div class="tab-section" id="tab-planilla">
+        <div class="topbar">
+          <div><h2>Planilla</h2><div class="sub">Cálculo de pago por periodo</div></div>
+        </div>
+        <div class="panel">
+          <div class="toolbar" style="margin-bottom:14px;">
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Desde</label><input type="date" id="planDesde"></div>
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Hasta</label><input type="date" id="planHasta"></div>
+            <button class="btn btn-add" style="align-self:flex-end;" onclick="calcularPlanilla()">Calcular planilla</button>
+            <button class="btn" style="align-self:flex-end;" onclick="exportarCSV()">Exportar CSV</button>
+          </div>
+          <div id="planStats"></div>
+          <div id="planTableWrap"></div>
+          <div class="sub" style="margin-top:10px;">El formato del CSV es provisional — cuando tengas el formato exacto que pide el banco, lo ajustamos.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal genérico ===== -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalBody"></div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<script>
+/* ============ CONFIG ============ */
+const OWNER = 'dsantosg94';
+const REPO = 'Rebeca-rrhh';
+const BRANCH = 'main';
+const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv' };
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo'];
+const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
+const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
+
+const TOKEN_KEY = 'rebeca_gh_token';
+let TOKEN = '';
+let DB = { empleados:[], herramientas:[], asistencia:[] };
+let SHA = { empleados:null, herramientas:null, asistencia:null };
+
+function storageAvailable(){
+  try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; }
+}
+function olvidarToken(){
+  try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+  location.reload();
+}
+
+/* Auto-conectar si ya hay un token guardado en este navegador */
+window.addEventListener('DOMContentLoaded', ()=>{
+  if(storageAvailable()){
+    const saved = localStorage.getItem(TOKEN_KEY);
+    if(saved){
+      document.getElementById('tokenInput').value = saved;
+      connect(true);
+    }
+  } else {
+    document.getElementById('gate-hint').style.display = 'block';
+  }
+});
+
+/* ============ GitHub API ============ */
+function ghHeaders(){
+  return { 'Authorization': 'Bearer ' + TOKEN, 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' };
+}
+function b64encode(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64decode(str){ return decodeURIComponent(escape(atob(str.replace(/\n/g,'')))); }
+
+async function ghGetFile(path){
+  const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`;
+  const res = await fetch(url, { headers: ghHeaders() });
+  if(!res.ok){
+    if(res.status===404) throw new Error(`No se encontró ${path} en el repo. Revisa que el archivo exista tal cual.`);
+    if(res.status===401) throw new Error('Token inválido o sin permiso. Genera uno nuevo con permiso Contents: Read and write.');
+    throw new Error(`Error leyendo ${path} (HTTP ${res.status})`);
+  }
+  const data = await res.json();
+  return { text: b64decode(data.content), sha: data.sha };
+}
+
+async function ghPutFile(path, text, sha, message){
+  const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`;
+  const body = { message: message || `Actualiza ${path}`, content: b64encode(text), branch: BRANCH };
+  if(sha) body.sha = sha;
+  const res = await fetch(url, { method:'PUT', headers: {...ghHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if(!res.ok){
+    const errBody = await res.json().catch(()=>({}));
+    throw new Error(errBody.message || `Error guardando ${path} (HTTP ${res.status})`);
+  }
+  const data = await res.json();
+  return data.content.sha;
+}
+
+/* ============ CSV helpers ============ */
+function parseCSV(text){
+  const r = Papa.parse(text, { header:true, skipEmptyLines:true });
+  return r.data;
+}
+function toCSV(headers, rows){
+  return Papa.unparse({ fields: headers, data: rows.map(r => headers.map(h => r[h] ?? '')) });
+}
+
+/* ============ Toast ============ */
+function toast(msg, type){
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = msg;
+  document.getElementById('toast-wrap').appendChild(el);
+  setTimeout(()=> el.remove(), 3400);
+}
+
+/* ============ Connect / load ============ */
+async function connect(silent){
+  const t = document.getElementById('tokenInput').value.trim();
+  const errEl = document.getElementById('gate-error');
+  errEl.style.display = 'none';
+  if(!t){ if(!silent){ errEl.textContent='Pega tu token primero.'; errEl.style.display='block'; } return; }
+  TOKEN = t;
+  try{
+    const [emp, herr, asis] = await Promise.all([
+      ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia)
+    ]);
+    DB.empleados = parseCSV(emp.text); SHA.empleados = emp.sha;
+    DB.herramientas = parseCSV(herr.text); SHA.herramientas = herr.sha;
+    DB.asistencia = parseCSV(asis.text); SHA.asistencia = asis.sha;
+
+    const remember = document.getElementById('rememberToken').checked;
+    if(remember && storageAvailable()){
+      try{ localStorage.setItem(TOKEN_KEY, t); }catch(e){}
+    }
+
+    document.getElementById('gate').style.display='none';
+    document.getElementById('app').style.display='block';
+    populateFilters();
+    renderEmpleados(); renderHerramientas(); renderAsistencia();
+  }catch(e){
+    if(silent){
+      // el token guardado ya no sirve (revocado/expirado) - lo borramos y pedimos uno nuevo
+      try{ localStorage.removeItem(TOKEN_KEY); }catch(err){}
+      document.getElementById('tokenInput').value='';
+      return;
+    }
+    errEl.textContent = e.message;
+    errEl.style.display='block';
+  }
+}
+
+async function saveEmpleados(msg){
+  SHA.empleados = await ghPutFile(FILES.empleados, toCSV(EMP_H, DB.empleados), SHA.empleados, msg);
+}
+async function saveHerramientas(msg){
+  SHA.herramientas = await ghPutFile(FILES.herramientas, toCSV(HERR_H, DB.herramientas), SHA.herramientas, msg);
+}
+async function saveAsistencia(msg){
+  SHA.asistencia = await ghPutFile(FILES.asistencia, toCSV(ASIS_H, DB.asistencia), SHA.asistencia, msg);
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* ============ Tabs ============ */
+function switchTab(name){
+  document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelector(`.nav-item[data-tab="${name}"]`).classList.add('active');
+}
+
+/* ============ Filters populate ============ */
+function populateFilters(){
+  const empresas = [...new Set(DB.empleados.map(e=>e.empresa_cliente).filter(Boolean))].sort();
+  const sel = document.getElementById('fEmpresa');
+  sel.innerHTML = '<option value="">Todas las empresas</option>' + empresas.map(e=>`<option value="${e}">${e}</option>`).join('');
+  refreshEmpleadoSelects();
+}
+function refreshEmpleadoSelects(){
+  const activos = DB.empleados;
+  const opts = activos.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('');
+  const asisSel = document.getElementById('fAsisEmp');
+  if(asisSel) asisSel.innerHTML = '<option value="">Todos los empleados</option>' + opts;
+}
+
+/* ============ EMPLEADOS ============ */
+function renderEmpleados(){
+  const fEmpresa = document.getElementById('fEmpresa').value;
+  const fRol = document.getElementById('fRol').value;
+  const fEstado = document.getElementById('fEstado').value;
+  let rows = DB.empleados.slice();
+  if(fEmpresa) rows = rows.filter(e=>e.empresa_cliente===fEmpresa);
+  if(fRol==='sup') rows = rows.filter(e=>e.es_supervisor==='true');
+  if(fRol==='emp') rows = rows.filter(e=>e.es_supervisor!=='true');
+  if(fEstado==='1') rows = rows.filter(e=>e.activo==='true');
+  if(fEstado==='0') rows = rows.filter(e=>e.activo!=='true');
+
+  const wrap = document.getElementById('empTableWrap');
+  if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr>
+    <th>Nombre</th><th>Empresa cliente</th><th>Rol</th><th>Contacto</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th><th></th>
+  </tr></thead><tbody>
+  ${rows.map(e=>`
+    <tr>
+      <td><strong>${e.nombre} ${e.apellido}</strong></td>
+      <td>${e.empresa_cliente||'—'}</td>
+      <td>${e.es_supervisor==='true' ? '<span class="pill pill-amber">Supervisor</span>' : '<span class="pill pill-gray">Empleado</span>'}</td>
+      <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
+      <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
+      <td class="mono">₡${Number(e.tarifa||0).toLocaleString()}</td>
+      <td>${e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>'}</td>
+      <td>
+        <button class="btn btn-sm" onclick="openEmpForm('${e.id}')">Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEmpleado('${e.id}')">Eliminar</button>
+      </td>
+    </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function openEmpForm(id){
+  const e = id ? DB.empleados.find(x=>x.id===id) : null;
+  document.getElementById('modalBody').innerHTML = `
+    <h3>${e?'Editar empleado':'Nuevo empleado'}</h3>
+    <div class="form-grid">
+      <div><label>Nombre</label><input id="m_nombre" value="${e?.nombre||''}"></div>
+      <div><label>Apellido</label><input id="m_apellido" value="${e?.apellido||''}"></div>
+      <div class="full"><label>Dirección</label><input id="m_direccion" value="${e?.direccion||''}"></div>
+      <div><label>Teléfono</label><input id="m_telefono" value="${e?.telefono||''}"></div>
+      <div><label>Correo</label><input id="m_correo" value="${e?.correo||''}"></div>
+      <div><label>Edad</label><input id="m_edad" type="number" value="${e?.edad||''}"></div>
+      <div><label>Fecha de nacimiento</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
+      <div class="full"><label>Empresa cliente (donde trabaja)</label><input id="m_empresa" value="${e?.empresa_cliente||''}"></div>
+      <div>
+        <label>Tipo de pago</label>
+        <select id="m_tipopago" onchange="document.getElementById('m_tarifaLabel').textContent = this.value==='fijo' ? 'Salario por día' : 'Tarifa por hora'">
+          <option value="hora" ${e?.tipo_pago!=='fijo'?'selected':''}>Por hora</option>
+          <option value="fijo" ${e?.tipo_pago==='fijo'?'selected':''}>Salario fijo (por día)</option>
+        </select>
+      </div>
+      <div><label id="m_tarifaLabel">${e?.tipo_pago==='fijo'?'Salario por día':'Tarifa por hora'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
+      <div class="full" style="display:flex;gap:24px;margin-top:6px;">
+        <label class="check-row"><input type="checkbox" id="m_supervisor" ${e?.es_supervisor==='true'?'checked':''}> Es supervisor</label>
+        <label class="check-row"><input type="checkbox" id="m_activo" ${e && e.activo==='false' ? '' : 'checked'}> Activo</label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitEmpForm('${id||''}')">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitEmpForm(id){
+  const rec = {
+    id: id || uid(),
+    nombre: val('m_nombre'), apellido: val('m_apellido'), direccion: val('m_direccion'),
+    telefono: val('m_telefono'), correo: val('m_correo'), edad: val('m_edad'),
+    fecha_nacimiento: val('m_fnac'), empresa_cliente: val('m_empresa'),
+    es_supervisor: document.getElementById('m_supervisor').checked ? 'true' : 'false',
+    tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
+    activo: document.getElementById('m_activo').checked ? 'true' : 'false'
+  };
+  if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
+  const idx = DB.empleados.findIndex(x=>x.id===id);
+  if(idx>=0) DB.empleados[idx] = rec; else DB.empleados.push(rec);
+  closeModal();
+  try{ await saveEmpleados(idx>=0?`Actualiza empleado ${rec.nombre} ${rec.apellido}`:`Agrega empleado ${rec.nombre} ${rec.apellido}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderEmpleados();
+}
+
+async function deleteEmpleado(id){
+  const e = DB.empleados.find(x=>x.id===id);
+  if(!confirm(`¿Eliminar a ${e.nombre} ${e.apellido}?`)) return;
+  DB.empleados = DB.empleados.filter(x=>x.id!==id);
+  try{ await saveEmpleados(`Elimina empleado ${e.nombre} ${e.apellido}`); toast('Eliminado ✓','ok'); }
+  catch(err){ toast('No se pudo guardar: '+err.message,'err'); }
+  populateFilters(); renderEmpleados();
+}
+
+/* ============ HERRAMIENTAS ============ */
+function renderHerramientas(){
+  const fEstado = document.getElementById('fHerrEstado').value;
+  let rows = DB.herramientas.slice();
+  if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
+  const wrap = document.getElementById('herrTableWrap');
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">No hay herramientas registradas.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Herramienta</th><th>Tipo</th><th>Asignada a</th><th>Desde</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${rows.map(h=>{
+    const emp = DB.empleados.find(e=>e.id===h.empleado_id);
+    return `<tr>
+      <td><strong>${h.nombre}</strong></td>
+      <td>${h.tipo||'—'}</td>
+      <td>${emp ? emp.nombre+' '+emp.apellido : '—'}</td>
+      <td class="mono">${h.fecha_asignacion||'—'}</td>
+      <td>${h.estado==='asignada' ? '<span class="pill pill-amber">Asignada</span>' : '<span class="pill pill-green">Disponible</span>'}</td>
+      <td>
+        ${h.estado==='asignada' ? `<button class="btn btn-sm" onclick="devolverHerramienta('${h.id}')">Marcar devuelta</button>` : `<button class="btn btn-sm" onclick="asignarHerramienta('${h.id}')">Asignar</button>`}
+        <button class="btn btn-sm btn-danger" onclick="deleteHerramienta('${h.id}')">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('')}
+  </tbody></table>`;
+}
+
+function openHerrForm(){
+  const activos = DB.empleados.filter(e=>e.activo==='true');
+  document.getElementById('modalBody').innerHTML = `
+    <h3>Nueva herramienta</h3>
+    <div class="form-grid">
+      <div><label>Nombre</label><input id="h_nombre" placeholder="Tijera, computadora, tiquetera..."></div>
+      <div><label>Tipo / categoría</label><input id="h_tipo" placeholder="Oficina, equipo..."></div>
+      <div class="full"><label>Asignar a (opcional)</label>
+        <select id="h_empleado"><option value="">Sin asignar</option>${activos.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitHerrForm()">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitHerrForm(){
+  const empleadoId = val('h_empleado');
+  const rec = {
+    id: uid(), nombre: val('h_nombre'), tipo: val('h_tipo'),
+    empleado_id: empleadoId || '',
+    fecha_asignacion: empleadoId ? new Date().toISOString().slice(0,10) : '',
+    fecha_devolucion: '',
+    estado: empleadoId ? 'asignada' : 'disponible'
+  };
+  if(!rec.nombre){ toast('Escribe el nombre de la herramienta','err'); return; }
+  DB.herramientas.push(rec);
+  closeModal();
+  try{ await saveHerramientas(`Agrega herramienta ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderHerramientas();
+}
+
+async function asignarHerramienta(id){
+  const activos = DB.empleados.filter(e=>e.activo==='true');
+  document.getElementById('modalBody').innerHTML = `
+    <h3>Asignar herramienta</h3>
+    <div class="form-grid"><div class="full"><label>Empleado</label>
+      <select id="h_asignar_emp">${activos.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('')}</select>
+    </div></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="confirmarAsignacion('${id}')">Asignar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+async function confirmarAsignacion(id){
+  const empId = val('h_asignar_emp');
+  const h = DB.herramientas.find(x=>x.id===id);
+  h.empleado_id = empId; h.fecha_asignacion = new Date().toISOString().slice(0,10); h.fecha_devolucion=''; h.estado='asignada';
+  closeModal();
+  try{ await saveHerramientas(`Asigna ${h.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderHerramientas();
+}
+async function devolverHerramienta(id){
+  const h = DB.herramientas.find(x=>x.id===id);
+  h.fecha_devolucion = new Date().toISOString().slice(0,10); h.estado='disponible'; h.empleado_id='';
+  try{ await saveHerramientas(`Devuelve ${h.nombre}`); toast('Marcada como devuelta ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderHerramientas();
+}
+async function deleteHerramienta(id){
+  const h = DB.herramientas.find(x=>x.id===id);
+  if(!confirm(`¿Eliminar "${h.nombre}"?`)) return;
+  DB.herramientas = DB.herramientas.filter(x=>x.id!==id);
+  try{ await saveHerramientas(`Elimina ${h.nombre}`); toast('Eliminado ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderHerramientas();
+}
+
+/* ============ ASISTENCIA ============ */
+function calcHoras(entrada, salida){
+  const [h1,m1] = entrada.split(':').map(Number);
+  const [h2,m2] = salida.split(':').map(Number);
+  let mins = (h2*60+m2) - (h1*60+m1);
+  if(mins < 0) mins += 24*60;
+  return Math.round((mins/60)*100)/100;
+}
+
+function renderAsistencia(){
+  const fEmp = document.getElementById('fAsisEmp').value;
+  const fDesde = document.getElementById('fAsisDesde').value;
+  const fHasta = document.getElementById('fAsisHasta').value;
+  let rows = DB.asistencia.slice().sort((a,b)=> (b.fecha||'').localeCompare(a.fecha||''));
+  if(fEmp) rows = rows.filter(r=>r.empleado_id===fEmp);
+  if(fDesde) rows = rows.filter(r=>r.fecha >= fDesde);
+  if(fHasta) rows = rows.filter(r=>r.fecha <= fHasta);
+
+  const wrap = document.getElementById('asisTableWrap');
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin marcas de asistencia todavía.</div>'; return; }
+  wrap.innerHTML = `<div class="tickets">${rows.map(r=>{
+    const emp = DB.empleados.find(e=>e.id===r.empleado_id);
+    return `<div class="ticket">
+      <div class="emp">${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}<span class="sub">${r.fecha}</span></div>
+      <div class="time"><span class="lab">Entrada</span>${r.hora_entrada}</div>
+      <div class="time"><span class="lab">Salida</span>${r.hora_salida}</div>
+      <div class="horas">${r.horas_trabajadas}h</div>
+      <div><button class="btn btn-sm btn-danger" onclick="deleteAsistencia('${r.id}')">Eliminar</button></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function openAsisForm(){
+  const opts = DB.empleados.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('');
+  document.getElementById('modalBody').innerHTML = `
+    <h3>Marcar asistencia</h3>
+    <div class="form-grid">
+      <div class="full"><label>Empleado</label><select id="a_emp">${opts}</select></div>
+      <div class="full"><label>Fecha</label><input id="a_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div><label>Hora entrada</label><input id="a_entrada" type="time"></div>
+      <div><label>Hora salida</label><input id="a_salida" type="time"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitAsisForm()">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitAsisForm(){
+  const entrada = val('a_entrada'), salida = val('a_salida');
+  if(!entrada || !salida){ toast('Faltan la hora de entrada o salida','err'); return; }
+  const rec = { id: uid(), empleado_id: val('a_emp'), fecha: val('a_fecha'), hora_entrada: entrada, hora_salida: salida, horas_trabajadas: calcHoras(entrada,salida) };
+  DB.asistencia.push(rec);
+  closeModal();
+  try{ await saveAsistencia(`Marca asistencia ${rec.fecha}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderAsistencia();
+}
+
+async function deleteAsistencia(id){
+  if(!confirm('¿Eliminar esta marca de asistencia?')) return;
+  DB.asistencia = DB.asistencia.filter(x=>x.id!==id);
+  try{ await saveAsistencia('Elimina marca de asistencia'); toast('Eliminado ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderAsistencia();
+}
+
+async function importBulkAsistencia(){
+  const raw = document.getElementById('bulkAsis').value.trim();
+  if(!raw){ toast('Pega al menos una fila','err'); return; }
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  let ok=0, fail=0;
+  lines.forEach(line=>{
+    const parts = line.split(',').map(p=>p.trim());
+    if(parts.length < 4){ fail++; return; }
+    const [nombreTxt, fecha, entrada, salida] = parts;
+    const emp = DB.empleados.find(e => (e.nombre+' '+e.apellido).toLowerCase() === nombreTxt.toLowerCase() || e.apellido.toLowerCase()===nombreTxt.toLowerCase() || e.id===nombreTxt);
+    if(!emp || !/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{1,2}:\d{2}$/.test(entrada) || !/^\d{1,2}:\d{2}$/.test(salida)){ fail++; return; }
+    DB.asistencia.push({ id: uid(), empleado_id: emp.id, fecha, hora_entrada: entrada, hora_salida: salida, horas_trabajadas: calcHoras(entrada,salida) });
+    ok++;
+  });
+  if(ok>0){
+    try{ await saveAsistencia(`Importa ${ok} marcas de asistencia`); toast(`${ok} filas importadas ✓` + (fail?` (${fail} con error, revisadas)`:''), 'ok'); }
+    catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  } else {
+    toast('Ninguna fila pudo importarse. Revisa nombres y formato de fecha/hora.','err');
+  }
+  document.getElementById('bulkAsis').value='';
+  renderAsistencia();
+}
+
+/* ============ PLANILLA ============ */
+let ULTIMO_CALCULO = [];
+function calcularPlanilla(){
+  const desde = val('planDesde'), hasta = val('planHasta');
+  if(!desde || !hasta){ toast('Elige el rango de fechas','err'); return; }
+  const activos = DB.empleados.filter(e=>e.activo==='true');
+  const resultado = activos.map(e=>{
+    const marcas = DB.asistencia.filter(a=>a.empleado_id===e.id && a.fecha>=desde && a.fecha<=hasta);
+    if(e.tipo_pago==='fijo'){
+      const dias = new Set(marcas.map(m=>m.fecha)).size;
+      return { emp:e, unidad: dias, tipoUnidad:'días', tarifa: Number(e.tarifa||0), total: dias*Number(e.tarifa||0) };
+    } else {
+      const horas = marcas.reduce((s,m)=>s+Number(m.horas_trabajadas||0),0);
+      return { emp:e, unidad: Math.round(horas*100)/100, tipoUnidad:'horas', tarifa: Number(e.tarifa||0), total: Math.round(horas*Number(e.tarifa||0)*100)/100 };
+    }
+  }).filter(r=>r.unidad>0);
+  ULTIMO_CALCULO = resultado;
+
+  const totalPagar = resultado.reduce((s,r)=>s+r.total,0);
+  document.getElementById('planStats').innerHTML = `
+    <div class="stat-row">
+      <div class="stat"><div class="n">${resultado.length}</div><div class="l">Empleados a pagar</div></div>
+      <div class="stat"><div class="n mono">₡${totalPagar.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="l">Total del periodo</div></div>
+    </div>`;
+
+  const wrap = document.getElementById('planTableWrap');
+  if(resultado.length===0){ wrap.innerHTML='<div class="empty-state">No hay asistencia registrada en ese rango.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Empleado</th><th>Empresa cliente</th><th>Tipo de pago</th><th>Horas / Días</th><th>Tarifa</th><th>Total a pagar</th></tr></thead><tbody>
+  ${resultado.map(r=>`<tr>
+    <td><strong>${r.emp.nombre} ${r.emp.apellido}</strong></td>
+    <td>${r.emp.empresa_cliente||'—'}</td>
+    <td>${r.emp.tipo_pago==='fijo'?'Salario fijo':'Por hora'}</td>
+    <td class="mono">${r.unidad} ${r.tipoUnidad}</td>
+    <td class="mono">₡${r.tarifa.toLocaleString()}</td>
+    <td class="mono"><strong>₡${r.total.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function exportarCSV(){
+  if(ULTIMO_CALCULO.length===0){ toast('Primero calcula la planilla','err'); return; }
+  const rows = ULTIMO_CALCULO.map(r=>({
+    nombre: r.emp.nombre+' '+r.emp.apellido,
+    empresa_cliente: r.emp.empresa_cliente||'',
+    tipo_pago: r.emp.tipo_pago,
+    unidad: r.unidad, tipo_unidad: r.tipoUnidad, tarifa: r.tarifa, total: r.total
+  }));
+  const csv = Papa.unparse(rows);
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `planilla_${val('planDesde')}_a_${val('planHasta')}.csv`;
+  link.click();
+  toast('CSV descargado ✓','ok');
+}
+
+/* ============ Utils ============ */
+function val(id){ return document.getElementById(id).value.trim(); }
+function closeModal(){ document.getElementById('overlay').classList.remove('show'); document.getElementById('modalBody').innerHTML=''; }
+document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+</script>
+</body>
+</html>
