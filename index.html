@@ -129,6 +129,14 @@
   .tab-section{display:none;}
   .tab-section.active{display:block;}
 
+  /* ---- Combo con buscador (para listas largas: cuenta, sala, empleado) ---- */
+  .combo{position:relative;}
+  .combo-list{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border);border-radius:7px;margin-top:4px;max-height:190px;overflow-y:auto;z-index:70;box-shadow:0 6px 18px rgba(27,42,74,.12);}
+  .combo-item{padding:8px 10px;font-size:13px;cursor:pointer;}
+  .combo-item:hover, .combo-item.hl{background:#EEF1F6;}
+  .combo-empty{padding:8px 10px;font-size:12px;color:var(--ink-soft);}
+  .nav-sub{padding-left:30px;font-size:13px;}
+
   @media (max-width:820px){
     .shell{grid-template-columns:1fr;}
     .sidebar{display:flex;overflow-x:auto;gap:6px;padding:12px;}
@@ -168,6 +176,7 @@
       <div class="brand">Rebeca RRHH<span><span class="conn-dot"></span>Conectado</span></div>
       <div class="nav-item active" data-tab="empleados" onclick="switchTab('empleados')">👤 Empleados</div>
       <div class="nav-item" data-tab="cuentas" onclick="switchTab('cuentas')">🏢 Cuentas</div>
+      <div class="nav-item nav-sub" data-tab="salas" onclick="switchTab('salas')">↳ Salas de venta</div>
       <div class="nav-item" data-tab="supervisores" onclick="switchTab('supervisores')">🧑‍💼 Supervisores</div>
       <div class="nav-item" data-tab="herramientas" onclick="switchTab('herramientas')">🧰 Herramientas</div>
       <div class="nav-item" data-tab="asistencia" onclick="switchTab('asistencia')">🎟️ Asistencia</div>
@@ -188,6 +197,7 @@
           <div class="panel-head">
             <div class="toolbar">
               <select id="fCuenta" onchange="renderEmpleados()"><option value="">Todas las cuentas</option></select>
+              <select id="fSala" onchange="renderEmpleados()"><option value="">Todas las salas</option></select>
               <select id="fEstado" onchange="renderEmpleados()">
                 <option value="">Todos los estados</option>
                 <option value="1">Activos</option>
@@ -212,7 +222,38 @@
           <button class="btn btn-add" onclick="openCuentaForm()">+ Nueva cuenta</button>
         </div>
         <div class="panel">
+          <div class="panel-head">
+            <div></div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('cuentas','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('cuentas','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('cuentas','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('cuentas','pdf')">PDF</button>
+            </div>
+          </div>
           <div id="cuentasTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- SALAS DE VENTA -->
+      <div class="tab-section" id="tab-salas">
+        <div class="topbar">
+          <div><h2>Salas de venta</h2><div class="sub">Puntos de venta de cada cuenta, donde están asignados los empleados</div></div>
+          <button class="btn btn-add" onclick="openSalaForm()">+ Nueva sala</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="toolbar">
+              <select id="fSalaCuenta" onchange="renderSalas()"><option value="">Todas las cuentas</option></select>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('salas','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('salas','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('salas','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('salas','pdf')">PDF</button>
+            </div>
+          </div>
+          <div id="salasTableWrap"></div>
         </div>
       </div>
 
@@ -226,6 +267,12 @@
           <div class="panel-head">
             <div class="toolbar">
               <select id="fSupCuenta" onchange="renderSupervisores()"><option value="">Todas las cuentas</option></select>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('supervisores','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('supervisores','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('supervisores','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('supervisores','pdf')">PDF</button>
             </div>
           </div>
           <div id="supTableWrap"></div>
@@ -316,6 +363,15 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
           <div><h2>Renuncias</h2><div class="sub">Empleados dados de baja. No se puede dar de baja a alguien con herramientas pendientes de devolver</div></div>
         </div>
         <div class="panel">
+          <div class="panel-head">
+            <div></div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('renuncias','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('renuncias','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('renuncias','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('renuncias','pdf')">PDF</button>
+            </div>
+          </div>
           <div id="renunciasTableWrap"></div>
         </div>
       </div>
@@ -336,17 +392,18 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
 const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
-const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja'];
+const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv' };
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
-const SUP_H = ['id','nombre','apellido','telefono','correo','cuenta_id'];
+const SUP_H = ['id','nombre','apellido','telefono','correo','sala_id','cuenta_id'];
+const SALA_H = ['id','nombre','cuenta_id','activa'];
 
 const TOKEN_KEY = 'rebeca_gh_token';
 let TOKEN = '';
-let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[] };
-let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null };
+let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[] };
+let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null };
 
 function storageAvailable(){
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; }
@@ -438,15 +495,16 @@ async function connect(silent){
   if(!t){ if(!silent){ errEl.textContent='Pega tu token primero.'; errEl.style.display='block'; } return; }
   TOKEN = t;
   try{
-    const [emp, herr, asis, cta, sup] = await Promise.all([
+    const [emp, herr, asis, cta, sup, sal] = await Promise.all([
       ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia),
-      ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores)
+      ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores), ghGetFileOpcional(FILES.salas)
     ]);
     DB.empleados = parseCSV(emp.text); SHA.empleados = emp.sha;
     DB.herramientas = parseCSV(herr.text); SHA.herramientas = herr.sha;
     DB.asistencia = parseCSV(asis.text); SHA.asistencia = asis.sha;
     DB.cuentas = parseCSV(cta.text); SHA.cuentas = cta.sha;
     DB.supervisores = parseCSV(sup.text); SHA.supervisores = sup.sha;
+    DB.salas = parseCSV(sal.text); SHA.salas = sal.sha;
 
     const remember = document.getElementById('rememberToken').checked;
     if(remember && storageAvailable()){
@@ -456,7 +514,7 @@ async function connect(silent){
     document.getElementById('gate').style.display='none';
     document.getElementById('app').style.display='block';
     populateFilters();
-    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias();
+    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas();
     try{
       const savedUrl = localStorage.getItem(GFORM_URL_KEY);
       if(savedUrl) document.getElementById('gformUrl').value = savedUrl;
@@ -488,6 +546,9 @@ async function saveCuentas(msg){
 async function saveSupervisores(msg){
   SHA.supervisores = await ghPutFile(FILES.supervisores, toCSV(SUP_H, DB.supervisores), SHA.supervisores, msg);
 }
+async function saveSalas(msg){
+  SHA.salas = await ghPutFile(FILES.salas, toCSV(SALA_H, DB.salas), SHA.salas, msg);
+}
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
@@ -504,13 +565,35 @@ function nombreCuenta(cuentaId){
   const c = DB.cuentas.find(x=>x.id===cuentaId);
   return c ? c.nombre : '';
 }
+function nombreSala(salaId){
+  const s = DB.salas.find(x=>x.id===salaId);
+  return s ? s.nombre : '';
+}
+function supervisorDeCuenta(cuentaId){
+  if(!cuentaId) return '';
+  const sups = DB.supervisores.filter(s=>s.cuenta_id===cuentaId);
+  if(sups.length===0) return '';
+  return sups.map(s=>s.nombre+' '+s.apellido).join(', ');
+}
+function supervisorDeSala(salaId){
+  if(!salaId) return '';
+  const sups = DB.supervisores.filter(s=>s.sala_id===salaId);
+  if(sups.length===0) return '';
+  return sups.map(s=>s.nombre+' '+s.apellido).join(', ');
+}
 function populateFilters(){
   const cuentasActivas = DB.cuentas.filter(c=>c.activa!=='false');
+  const salasActivas = DB.salas.filter(s=>s.activa!=='false');
   const optsCuenta = cuentasActivas.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  const optsSala = salasActivas.map(s=>`<option value="${s.id}">${s.nombre} (${nombreCuenta(s.cuenta_id)})</option>`).join('');
   const fCuenta = document.getElementById('fCuenta');
   if(fCuenta) fCuenta.innerHTML = '<option value="">Todas las cuentas</option>' + optsCuenta;
+  const fSala = document.getElementById('fSala');
+  if(fSala) fSala.innerHTML = '<option value="">Todas las salas</option>' + optsSala;
   const fSupCuenta = document.getElementById('fSupCuenta');
   if(fSupCuenta) fSupCuenta.innerHTML = '<option value="">Todas las cuentas</option>' + optsCuenta;
+  const fSalaCuenta = document.getElementById('fSalaCuenta');
+  if(fSalaCuenta) fSalaCuenta.innerHTML = '<option value="">Todas las cuentas</option>' + optsCuenta;
   refreshEmpleadoSelects();
 }
 function refreshEmpleadoSelects(){
@@ -520,12 +603,62 @@ function refreshEmpleadoSelects(){
   if(asisSel) asisSel.innerHTML = '<option value="">Todos los empleados</option>' + opts;
 }
 
+/* ============ Combo con buscador (reemplaza selects largos) ============ */
+const COMBO_DATA = {};
+function comboHTML(idPrefix, opciones, valorSeleccionado, labelSeleccionado, placeholder){
+  COMBO_DATA[idPrefix] = opciones; // [{id,label}]
+  return `<div class="combo" id="${idPrefix}_wrap">
+    <input type="text" id="${idPrefix}_search" class="combo-input" autocomplete="off" placeholder="${placeholder||'Buscar...'}"
+      value="${labelSeleccionado||''}"
+      onfocus="comboAbrir('${idPrefix}')" oninput="comboEscribir('${idPrefix}')">
+    <input type="hidden" id="${idPrefix}_value" value="${valorSeleccionado||''}">
+    <div class="combo-list" id="${idPrefix}_list" style="display:none;"></div>
+  </div>`;
+}
+function comboRenderLista(idPrefix, filtro){
+  const opciones = COMBO_DATA[idPrefix] || [];
+  const f = (filtro||'').toLowerCase();
+  const filtradas = f ? opciones.filter(o=>o.label.toLowerCase().includes(f)) : opciones;
+  const listEl = document.getElementById(idPrefix+'_list');
+  if(!listEl) return;
+  if(filtradas.length===0){ listEl.innerHTML = '<div class="combo-empty">Sin resultados</div>'; return; }
+  listEl.innerHTML = filtradas.slice(0,200).map(o=>
+    `<div class="combo-item" onmousedown="comboSeleccionar('${idPrefix}','${String(o.id).replace(/'/g,"\\'")}',this.textContent)">${o.label}</div>`
+  ).join('');
+}
+function comboAbrir(idPrefix){
+  comboRenderLista(idPrefix, document.getElementById(idPrefix+'_search').value);
+  document.getElementById(idPrefix+'_list').style.display='block';
+}
+function comboEscribir(idPrefix){
+  document.getElementById(idPrefix+'_value').value = '';
+  comboRenderLista(idPrefix, document.getElementById(idPrefix+'_search').value);
+  document.getElementById(idPrefix+'_list').style.display='block';
+}
+function comboSeleccionar(idPrefix, id, label){
+  document.getElementById(idPrefix+'_search').value = label;
+  document.getElementById(idPrefix+'_value').value = id;
+  document.getElementById(idPrefix+'_list').style.display='none';
+}
+function comboValor(idPrefix){
+  const el = document.getElementById(idPrefix+'_value');
+  return el ? el.value : '';
+}
+document.addEventListener('click', e=>{
+  document.querySelectorAll('.combo-list').forEach(list=>{
+    const wrap = list.closest('.combo');
+    if(wrap && !wrap.contains(e.target)) list.style.display='none';
+  });
+});
+
 /* ============ EMPLEADOS ============ */
 function obtenerEmpleadosFiltrados(){
   const fCuenta = document.getElementById('fCuenta').value;
   const fEstado = document.getElementById('fEstado').value;
   let rows = DB.empleados.slice();
   if(fCuenta) rows = rows.filter(e=>e.cuenta_id===fCuenta);
+  const fSala = document.getElementById('fSala').value;
+  if(fSala) rows = rows.filter(e=>e.sala_id===fSala);
   if(fEstado==='1') rows = rows.filter(e=>e.activo==='true');
   if(fEstado==='0') rows = rows.filter(e=>e.activo!=='true');
   return rows;
@@ -536,12 +669,14 @@ function renderEmpleados(){
   const wrap = document.getElementById('empTableWrap');
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; return; }
   wrap.innerHTML = `<table><thead><tr>
-    <th>Nombre</th><th>Cuenta</th><th>Contacto</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th><th></th>
+    <th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th><th></th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
       <td><strong>${e.nombre} ${e.apellido}</strong></td>
       <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
+      <td>${nombreSala(e.sala_id)||'—'}</td>
+      <td>${supervisorDeSala(e.sala_id)||'—'}</td>
       <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
       <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
@@ -549,7 +684,6 @@ function renderEmpleados(){
       <td>
         <button class="btn btn-sm" onclick="openEmpForm('${e.id}')">Editar</button>
         ${!e.fecha_baja ? `<button class="btn btn-sm btn-danger" onclick="darDeBaja('${e.id}')">Dar de baja</button>` : ''}
-        <button class="btn btn-sm btn-danger" onclick="deleteEmpleado('${e.id}')">Eliminar</button>
       </td>
     </tr>`).join('')}
   </tbody></table>`;
@@ -557,8 +691,10 @@ function renderEmpleados(){
 
 function openEmpForm(id){
   const e = id ? DB.empleados.find(x=>x.id===id) : null;
-  const cuentasActivas = DB.cuentas.filter(c=>c.activa!=='false');
-  const optsCuenta = cuentasActivas.map(c=>`<option value="${c.id}" ${e?.cuenta_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
+  const salasActivas = DB.salas.filter(s=>s.activa!=='false');
+  const opcionesSala = salasActivas.map(s=>({ id:s.id, label: `${s.nombre} (${nombreCuenta(s.cuenta_id)})` }));
+  const salaSel = e?.sala_id ? salasActivas.find(s=>s.id===e.sala_id) : null;
+  const labelSalaSel = salaSel ? `${salaSel.nombre} (${nombreCuenta(salaSel.cuenta_id)})` : '';
   document.getElementById('modalBody').innerHTML = `
     <h3>${e?'Editar empleado':'Nuevo empleado'}</h3>
     <div class="form-grid">
@@ -569,12 +705,9 @@ function openEmpForm(id){
       <div><label>Correo</label><input id="m_correo" value="${e?.correo||''}"></div>
       <div><label>Edad</label><input id="m_edad" type="number" value="${e?.edad||''}"></div>
       <div><label>Fecha de nacimiento</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
-      <div class="full"><label>Cuenta asignada</label>
-        <select id="m_cuenta">
-          <option value="">Sin asignar</option>
-          ${optsCuenta}
-        </select>
-        ${cuentasActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes cuentas creadas — ve a la pestaña "Cuentas" y crea la primera.</div>' : ''}
+      <div class="full"><label>Sala de venta asignada</label>
+        ${comboHTML('m_sala', opcionesSala, e?.sala_id||'', labelSalaSel, 'Buscar sala...')}
+        ${salasActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes salas creadas — ve a "Cuentas → Salas de venta" y crea la primera.</div>' : ''}
       </div>
       <div>
         <label>Tipo de pago</label>
@@ -584,6 +717,8 @@ function openEmpForm(id){
         </select>
       </div>
       <div><label id="m_tarifaLabel">${e?.tipo_pago==='fijo'?'Salario por día':'Tarifa por hora'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
+      <div><label>Carné de SRS (manipulación de alimentos)</label><input id="m_carne_srs" value="${e?.carne_srs||''}" placeholder="Número o dejar vacío"></div>
+      <div><label>Carné de empleado</label><input id="m_carne_empleado" value="${e?.carne_empleado||''}" placeholder="Aún no emitido si está vacío"></div>
       <div class="full" style="margin-top:6px;">
         <label class="check-row"><input type="checkbox" id="m_activo" ${e && e.activo==='false' ? '' : 'checked'}> Activo</label>
       </div>
@@ -596,16 +731,20 @@ function openEmpForm(id){
 }
 
 async function submitEmpForm(id){
-  const cuentaId = val('m_cuenta');
+  const salaId = comboValor('m_sala');
+  const sala = DB.salas.find(s=>s.id===salaId);
+  const cuentaId = sala ? sala.cuenta_id : '';
   const rec = {
     id: id || uid(),
     nombre: val('m_nombre'), apellido: val('m_apellido'), direccion: val('m_direccion'),
     telefono: val('m_telefono'), correo: val('m_correo'), edad: val('m_edad'),
     fecha_nacimiento: val('m_fnac'),
+    sala_id: salaId,
     cuenta_id: cuentaId,
     empresa_cliente: nombreCuenta(cuentaId),
     es_supervisor: 'false',
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
+    carne_srs: val('m_carne_srs'), carne_empleado: val('m_carne_empleado'),
     activo: document.getElementById('m_activo').checked ? 'true' : 'false'
   };
   const existente = DB.empleados.find(x=>x.id===id);
@@ -651,20 +790,6 @@ async function confirmarBaja(id){
   renderEmpleados(); renderRenuncias();
 }
 
-async function deleteEmpleado(id){
-  const e = DB.empleados.find(x=>x.id===id);
-  const pendientes = DB.herramientas.filter(h=>h.empleado_id===id && h.estado==='asignada');
-  if(pendientes.length>0){
-    toast(`No se puede eliminar: debe devolver primero: ${pendientes.map(h=>h.nombre).join(', ')}`, 'err');
-    return;
-  }
-  if(!confirm(`¿Eliminar a ${e.nombre} ${e.apellido}?`)) return;
-  DB.empleados = DB.empleados.filter(x=>x.id!==id);
-  try{ await saveEmpleados(`Elimina empleado ${e.nombre} ${e.apellido}`); toast('Eliminado ✓','ok'); }
-  catch(err){ toast('No se pudo guardar: '+err.message,'err'); }
-  populateFilters(); renderEmpleados(); renderRenuncias();
-}
-
 /* ============ HERRAMIENTAS ============ */
 function renderHerramientas(){
   const fEstado = document.getElementById('fHerrEstado').value;
@@ -692,13 +817,14 @@ function renderHerramientas(){
 
 function openHerrForm(){
   const activos = DB.empleados.filter(e=>e.activo==='true');
+  const opcionesEmp = activos.map(e=>({ id:e.id, label: `${e.nombre} ${e.apellido}` }));
   document.getElementById('modalBody').innerHTML = `
     <h3>Nueva herramienta</h3>
     <div class="form-grid">
       <div><label>Nombre</label><input id="h_nombre" placeholder="Tijera, computadora, tiquetera..."></div>
       <div><label>Tipo / categoría</label><input id="h_tipo" placeholder="Oficina, equipo..."></div>
       <div class="full"><label>Asignar a (opcional)</label>
-        <select id="h_empleado"><option value="">Sin asignar</option>${activos.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('')}</select>
+        ${comboHTML('h_empleado', opcionesEmp, '', '', 'Buscar empleado...')}
       </div>
     </div>
     <div class="form-actions">
@@ -709,7 +835,7 @@ function openHerrForm(){
 }
 
 async function submitHerrForm(){
-  const empleadoId = val('h_empleado');
+  const empleadoId = comboValor('h_empleado');
   const rec = {
     id: uid(), nombre: val('h_nombre'), tipo: val('h_tipo'),
     empleado_id: empleadoId || '',
@@ -727,10 +853,11 @@ async function submitHerrForm(){
 
 async function asignarHerramienta(id){
   const activos = DB.empleados.filter(e=>e.activo==='true');
+  const opcionesEmp = activos.map(e=>({ id:e.id, label: `${e.nombre} ${e.apellido}` }));
   document.getElementById('modalBody').innerHTML = `
     <h3>Asignar herramienta</h3>
     <div class="form-grid"><div class="full"><label>Empleado</label>
-      <select id="h_asignar_emp">${activos.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('')}</select>
+      ${comboHTML('h_asignar_emp', opcionesEmp, '', '', 'Buscar empleado...')}
     </div></div>
     <div class="form-actions">
       <button class="btn" onclick="closeModal()">Cancelar</button>
@@ -739,7 +866,8 @@ async function asignarHerramienta(id){
   document.getElementById('overlay').classList.add('show');
 }
 async function confirmarAsignacion(id){
-  const empId = val('h_asignar_emp');
+  const empId = comboValor('h_asignar_emp');
+  if(!empId){ toast('Elige un empleado de la lista','err'); return; }
   const h = DB.herramientas.find(x=>x.id===id);
   h.empleado_id = empId; h.fecha_asignacion = new Date().toISOString().slice(0,10); h.fecha_devolucion=''; h.estado='asignada';
   closeModal();
@@ -1024,7 +1152,7 @@ function renderCuentas(){
     <td>${c.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
     <td>
       <button class="btn btn-sm" onclick="openCuentaForm('${c.id}')">Editar</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteCuenta('${c.id}')">Eliminar</button>
+      <button class="btn btn-sm" onclick="toggleCuentaActiva('${c.id}')">${c.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
     </td>
   </tr>`).join('')}
   </tbody></table>`;
@@ -1065,15 +1193,74 @@ async function submitCuentaForm(id){
   populateFilters(); renderCuentas();
 }
 
-async function deleteCuenta(id){
+async function toggleCuentaActiva(id){
   const c = DB.cuentas.find(x=>x.id===id);
-  const enUso = DB.empleados.some(e=>e.cuenta_id===id) || DB.supervisores.some(s=>s.cuenta_id===id);
-  if(enUso){ toast('No se puede eliminar: hay empleados o supervisores asignados a esta cuenta','err'); return; }
-  if(!confirm(`¿Eliminar la cuenta "${c.nombre}"?`)) return;
-  DB.cuentas = DB.cuentas.filter(x=>x.id!==id);
-  try{ await saveCuentas(`Elimina cuenta ${c.nombre}`); toast('Eliminada ✓','ok'); }
+  c.activa = (c.activa!=='false') ? 'false' : 'true';
+  try{ await saveCuentas(`${c.activa==='false'?'Desactiva':'Activa'} cuenta ${c.nombre}`); toast('Guardado en GitHub ✓','ok'); }
   catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
   populateFilters(); renderCuentas();
+}
+
+/* ============ SALAS DE VENTA ============ */
+function renderSalas(){
+  const fCuenta = document.getElementById('fSalaCuenta').value;
+  let rows = DB.salas.slice();
+  if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
+  const wrap = document.getElementById('salasTableWrap');
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin salas de venta todavía. Crea la primera con "+ Nueva sala".</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Sala</th><th>Cuenta</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${rows.map(s=>`<tr>
+    <td><strong>${s.nombre}</strong></td>
+    <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
+    <td>${s.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
+    <td>
+      <button class="btn btn-sm" onclick="openSalaForm('${s.id}')">Editar</button>
+      <button class="btn btn-sm" onclick="toggleSalaActiva('${s.id}')">${s.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
+    </td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function openSalaForm(id){
+  const s = id ? DB.salas.find(x=>x.id===id) : null;
+  const optsCuenta = DB.cuentas.map(c=>`<option value="${c.id}" ${s?.cuenta_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
+  document.getElementById('modalBody').innerHTML = `
+    <h3>${s?'Editar sala de venta':'Nueva sala de venta'}</h3>
+    <div class="form-grid">
+      <div class="full"><label>Nombre de la sala</label><input id="sl_nombre" value="${s?.nombre||''}" placeholder="Ej. San Salvador Centro"></div>
+      <div class="full"><label>Cuenta</label><select id="sl_cuenta"><option value="">Sin asignar</option>${optsCuenta}</select>
+        ${DB.cuentas.length===0 ? '<div class="sub" style="margin-top:4px;">Primero crea una cuenta en la pestaña "Cuentas".</div>' : ''}
+      </div>
+      <div class="full"><label class="check-row"><input type="checkbox" id="sl_activa" ${s && s.activa==='false' ? '' : 'checked'}> Sala activa</label></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitSalaForm('${id||''}')">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitSalaForm(id){
+  const rec = {
+    id: id || uid(), nombre: val('sl_nombre'), cuenta_id: val('sl_cuenta'),
+    activa: document.getElementById('sl_activa').checked ? 'true' : 'false'
+  };
+  if(!rec.nombre){ toast('El nombre de la sala es obligatorio','err'); return; }
+  if(!rec.cuenta_id){ toast('Elige a qué cuenta pertenece esta sala','err'); return; }
+  const idx = DB.salas.findIndex(x=>x.id===id);
+  if(idx>=0) DB.salas[idx] = rec; else DB.salas.push(rec);
+  closeModal();
+  try{ await saveSalas(idx>=0?`Actualiza sala ${rec.nombre}`:`Agrega sala ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderSalas();
+}
+
+async function toggleSalaActiva(id){
+  const s = DB.salas.find(x=>x.id===id);
+  s.activa = (s.activa!=='false') ? 'false' : 'true';
+  try{ await saveSalas(`${s.activa==='false'?'Desactiva':'Activa'} sala ${s.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderSalas();
 }
 
 /* ============ SUPERVISORES ============ */
@@ -1083,9 +1270,10 @@ function renderSupervisores(){
   if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
   const wrap = document.getElementById('supTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin supervisores todavía.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Cuenta</th><th>Contacto</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Sala de venta</th><th>Cuenta</th><th>Contacto</th><th></th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
     <td><strong>${s.nombre} ${s.apellido}</strong></td>
+    <td>${nombreSala(s.sala_id)||'—'}</td>
     <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
     <td class="mono" style="font-size:12px;">${s.telefono||''}<br>${s.correo||''}</td>
     <td>
@@ -1098,16 +1286,19 @@ function renderSupervisores(){
 
 function openSupForm(id){
   const s = id ? DB.supervisores.find(x=>x.id===id) : null;
-  const optsCuenta = DB.cuentas.map(c=>`<option value="${c.id}" ${s?.cuenta_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
+  const salasActivas = DB.salas.filter(sl=>sl.activa!=='false');
+  const opcionesSala = salasActivas.map(sl=>({ id:sl.id, label: `${sl.nombre} (${nombreCuenta(sl.cuenta_id)})` }));
+  const salaSel = s?.sala_id ? salasActivas.find(sl=>sl.id===s.sala_id) : null;
+  const labelSalaSel = salaSel ? `${salaSel.nombre} (${nombreCuenta(salaSel.cuenta_id)})` : '';
   document.getElementById('modalBody').innerHTML = `
     <h3>${s?'Editar supervisor':'Nuevo supervisor'}</h3>
-    <div class="sub" style="margin-bottom:12px;">Persona de la empresa cliente a cargo del personal que le prestas — no es un empleado tuyo, no recibe pago de tu parte.</div>
+    <div class="sub" style="margin-bottom:12px;">Persona de la empresa cliente a cargo del personal que le prestas en esa sala — no es un empleado tuyo, no recibe pago de tu parte. Una sala puede no tener supervisor todavía.</div>
     <div class="form-grid">
       <div><label>Nombre</label><input id="s_nombre" value="${s?.nombre||''}"></div>
       <div><label>Apellido</label><input id="s_apellido" value="${s?.apellido||''}"></div>
       <div><label>Teléfono</label><input id="s_telefono" value="${s?.telefono||''}"></div>
       <div><label>Correo</label><input id="s_correo" value="${s?.correo||''}"></div>
-      <div class="full"><label>Cuenta</label><select id="s_cuenta"><option value="">Sin asignar</option>${optsCuenta}</select></div>
+      <div class="full"><label>Sala de venta (opcional)</label>${comboHTML('s_sala', opcionesSala, s?.sala_id||'', labelSalaSel, 'Buscar sala...')}</div>
     </div>
     <div class="form-actions">
       <button class="btn" onclick="closeModal()">Cancelar</button>
@@ -1117,9 +1308,12 @@ function openSupForm(id){
 }
 
 async function submitSupForm(id){
+  const salaId = comboValor('s_sala');
+  const sala = DB.salas.find(sl=>sl.id===salaId);
   const rec = {
     id: id || uid(), nombre: val('s_nombre'), apellido: val('s_apellido'),
-    telefono: val('s_telefono'), correo: val('s_correo'), cuenta_id: val('s_cuenta')
+    telefono: val('s_telefono'), correo: val('s_correo'),
+    sala_id: salaId, cuenta_id: sala ? sala.cuenta_id : ''
   };
   if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
   const idx = DB.supervisores.findIndex(x=>x.id===id);
@@ -1212,11 +1406,15 @@ function exportarPDFGenerico(rows, columnas, titulo){
 const COLUMNAS_EMPLEADOS = [
   { label:'Nombre', value: e => `${e.nombre} ${e.apellido}` },
   { label:'Cuenta', value: e => nombreCuenta(e.cuenta_id) || '' },
+  { label:'Sala de venta', value: e => nombreSala(e.sala_id) || '' },
+  { label:'Supervisor', value: e => supervisorDeSala(e.sala_id) || '' },
   { label:'Teléfono', value: e => e.telefono||'' },
   { label:'Correo', value: e => e.correo||'' },
   { label:'Dirección', value: e => e.direccion||'' },
   { label:'Tipo de pago', value: e => e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora' },
   { label:'Tarifa', value: e => e.tarifa||'' },
+  { label:'Carné SRS', value: e => e.carne_srs||'' },
+  { label:'Carné de empleado', value: e => e.carne_empleado||'' },
   { label:'Estado', value: e => e.fecha_baja ? 'De baja' : (e.activo==='true' ? 'Activo' : 'Inactivo') }
 ];
 const COLUMNAS_HERRAMIENTAS = [
@@ -1226,6 +1424,32 @@ const COLUMNAS_HERRAMIENTAS = [
   { label:'Fecha asignación', value: h => h.fecha_asignacion||'' },
   { label:'Estado', value: h => h.estado==='asignada' ? 'Asignada' : 'Disponible' }
 ];
+const COLUMNAS_CUENTAS = [
+  { label:'Nombre', value: c => c.nombre||'' },
+  { label:'Código', value: c => c.codigo||'' },
+  { label:'Contacto principal', value: c => c.contacto_principal||'' },
+  { label:'Teléfono', value: c => c.telefono||'' },
+  { label:'Dirección', value: c => c.direccion||'' },
+  { label:'Estado', value: c => c.activa!=='false' ? 'Activa' : 'Inactiva' }
+];
+const COLUMNAS_SALAS = [
+  { label:'Sala', value: s => s.nombre||'' },
+  { label:'Cuenta', value: s => nombreCuenta(s.cuenta_id) || '' },
+  { label:'Estado', value: s => s.activa!=='false' ? 'Activa' : 'Inactiva' }
+];
+const COLUMNAS_SUPERVISORES = [
+  { label:'Nombre', value: s => `${s.nombre} ${s.apellido}` },
+  { label:'Sala de venta', value: s => nombreSala(s.sala_id) || '' },
+  { label:'Cuenta', value: s => nombreCuenta(s.cuenta_id) || '' },
+  { label:'Teléfono', value: s => s.telefono||'' },
+  { label:'Correo', value: s => s.correo||'' }
+];
+const COLUMNAS_RENUNCIAS = [
+  { label:'Nombre', value: e => `${e.nombre} ${e.apellido}` },
+  { label:'Cuenta', value: e => nombreCuenta(e.cuenta_id) || '' },
+  { label:'Fecha de baja', value: e => e.fecha_baja||'' },
+  { label:'Motivo', value: e => e.motivo_baja||'' }
+];
 
 function accionExportar(seccion, tipo){
   let rows, columnas, filename, titulo;
@@ -1234,6 +1458,17 @@ function accionExportar(seccion, tipo){
     const fEstado = document.getElementById('fHerrEstado').value;
     rows = DB.herramientas.slice(); if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
     columnas = COLUMNAS_HERRAMIENTAS; filename='herramientas'; titulo='Herramientas';
+  } else if(seccion==='cuentas'){ rows = DB.cuentas.slice(); columnas = COLUMNAS_CUENTAS; filename='cuentas'; titulo='Cuentas'; }
+  else if(seccion==='salas'){
+    const fCuenta = document.getElementById('fSalaCuenta').value;
+    rows = DB.salas.slice(); if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
+    columnas = COLUMNAS_SALAS; filename='salas_de_venta'; titulo='Salas de venta';
+  } else if(seccion==='supervisores'){
+    const fCuenta = document.getElementById('fSupCuenta').value;
+    rows = DB.supervisores.slice(); if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
+    columnas = COLUMNAS_SUPERVISORES; filename='supervisores'; titulo='Supervisores';
+  } else if(seccion==='renuncias'){
+    rows = DB.empleados.filter(e=>e.fecha_baja); columnas = COLUMNAS_RENUNCIAS; filename='renuncias'; titulo='Renuncias';
   } else return;
 
   if(rows.length===0){ toast('No hay filas para exportar con los filtros actuales','err'); return; }
