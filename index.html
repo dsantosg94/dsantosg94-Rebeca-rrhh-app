@@ -227,7 +227,16 @@
           <button class="btn btn-add" onclick="openAsisForm()">+ Marcar asistencia</button>
         </div>
         <div class="panel">
-          <h3 style="font-size:14px;margin-bottom:8px;">Importar varias filas de golpe</h3>
+          <h3 style="font-size:14px;margin-bottom:8px;">Sincronizar desde Google Form (automático)</h3>
+          <div class="sub" style="margin-bottom:8px;">Pega la URL del CSV publicado de la hoja de respuestas de tu Form. Cada vez que le des "Sincronizar", trae las marcas nuevas y arma la asistencia sola.</div>
+          <div class="toolbar">
+            <input type="text" id="gformUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" style="flex:1;min-width:280px;">
+            <button class="btn btn-add" onclick="sincronizarGoogleForm()">Sincronizar ahora</button>
+          </div>
+          <div id="syncResult" class="sub" style="margin-top:8px;"></div>
+        </div>
+        <div class="panel">
+          <h3 style="font-size:14px;margin-bottom:8px;">O pega filas a mano (respaldo manual)</h3>
           <div class="sub" style="margin-bottom:8px;">Una fila por línea: <span class="mono">nombre o apellido, fecha AAAA-MM-DD, hora entrada HH:MM, hora salida HH:MM</span></div>
           <textarea class="bulk" id="bulkAsis" placeholder="Maria Lopez, 2026-08-20, 08:00, 16:00
 Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
@@ -384,6 +393,10 @@ async function connect(silent){
     document.getElementById('app').style.display='block';
     populateFilters();
     renderEmpleados(); renderHerramientas(); renderAsistencia();
+    try{
+      const savedUrl = localStorage.getItem(GFORM_URL_KEY);
+      if(savedUrl) document.getElementById('gformUrl').value = savedUrl;
+    }catch(e){}
   }catch(e){
     if(silent){
       // el token guardado ya no sirve (revocado/expirado) - lo borramos y pedimos uno nuevo
@@ -454,7 +467,7 @@ function renderEmpleados(){
       <td>${e.es_supervisor==='true' ? '<span class="pill pill-amber">Supervisor</span>' : '<span class="pill pill-gray">Empleado</span>'}</td>
       <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
       <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
-      <td class="mono">₡${Number(e.tarifa||0).toLocaleString()}</td>
+      <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
       <td>${e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>'}</td>
       <td>
         <button class="btn btn-sm" onclick="openEmpForm('${e.id}')">Editar</button>
@@ -623,6 +636,106 @@ async function deleteHerramienta(id){
   renderHerramientas();
 }
 
+/* ============ Sincronizar desde Google Form ============ */
+const GFORM_URL_KEY = 'rebeca_gform_url';
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+
+function parseTimestamp(str){
+  let d = new Date(str);
+  if(!isNaN(d)) return d;
+  const m = String(str).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})[,\s]+(\d{1,2}):(\d{2})(:(\d{2}))?/);
+  if(m){
+    // Asume DD/MM/YYYY si el navegador no pudo parsearlo directo
+    d = new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5], +(m[7]||0));
+    if(!isNaN(d)) return d;
+  }
+  return null;
+}
+
+function detectarColumnas(rows){
+  const headers = Object.keys(rows[0] || {});
+  if(headers.length < 3) return null;
+  const tsCol = headers[0];
+  let tipoCol = null;
+  for(const h of headers.slice(1)){
+    const vals = rows.map(r => String(r[h]||'').trim().toLowerCase());
+    const soloTipo = vals.every(v => v==='' || v==='entrada' || v==='salida');
+    if(soloTipo && vals.some(v=>v)) { tipoCol = h; break; }
+  }
+  if(!tipoCol) return null;
+  const nombreCol = headers.slice(1).find(h => h!==tipoCol);
+  return { tsCol, tipoCol, nombreCol };
+}
+
+async function sincronizarGoogleForm(){
+  const url = val('gformUrl');
+  if(!url){ toast('Pega la URL del CSV publicado primero','err'); return; }
+  try{ localStorage.setItem(GFORM_URL_KEY, url); }catch(e){}
+
+  const resEl = document.getElementById('syncResult');
+  resEl.textContent = 'Descargando respuestas...';
+  try{
+    const res = await fetch(url + (url.includes('?')?'&':'?') + '_ts=' + Date.now());
+    if(!res.ok) throw new Error('No se pudo descargar el CSV (HTTP '+res.status+'). Revisa que el link esté publicado como CSV.');
+    const text = await res.text();
+    const rows = Papa.parse(text, { header:true, skipEmptyLines:true }).data;
+    if(rows.length===0){ resEl.textContent='El formulario todavía no tiene respuestas.'; return; }
+
+    const cols = detectarColumnas(rows);
+    if(!cols){ resEl.textContent='No se reconoce el formato del CSV. Revisa que el Form tenga una columna de Nombre y otra con solo "Entrada"/"Salida".'; return; }
+
+    const grupos = {};
+    const sinCoincidencia = new Set();
+    let sinFecha = 0;
+
+    rows.forEach(r=>{
+      const ts = parseTimestamp(r[cols.tsCol]);
+      if(!ts){ sinFecha++; return; }
+      const nombreTxt = String(r[cols.nombreCol]||'').trim();
+      const tipo = String(r[cols.tipoCol]||'').trim().toLowerCase();
+      const emp = DB.empleados.find(e => (e.nombre+' '+e.apellido).trim().toLowerCase() === nombreTxt.toLowerCase());
+      if(!emp){ sinCoincidencia.add(nombreTxt); return; }
+      const fecha = `${ts.getFullYear()}-${pad2(ts.getMonth()+1)}-${pad2(ts.getDate())}`;
+      const hora = `${pad2(ts.getHours())}:${pad2(ts.getMinutes())}`;
+      const key = emp.id + '|' + fecha;
+      if(!grupos[key]) grupos[key] = { empId: emp.id, fecha, entradas:[], salidas:[] };
+      if(tipo==='entrada') grupos[key].entradas.push(hora);
+      else if(tipo==='salida') grupos[key].salidas.push(hora);
+    });
+
+    let completos=0, incompletos=0;
+    Object.values(grupos).forEach(g=>{
+      if(g.entradas.length===0 || g.salidas.length===0){ incompletos++; return; }
+      const entrada = g.entradas.sort()[0];
+      const salida = g.salidas.sort().slice(-1)[0];
+      const horas = calcHoras(entrada, salida);
+      const existente = DB.asistencia.find(a=>a.empleado_id===g.empId && a.fecha===g.fecha);
+      if(existente){
+        existente.hora_entrada = entrada; existente.hora_salida = salida; existente.horas_trabajadas = horas;
+      } else {
+        DB.asistencia.push({ id: uid(), empleado_id: g.empId, fecha: g.fecha, hora_entrada: entrada, hora_salida: salida, horas_trabajadas: horas });
+      }
+      completos++;
+    });
+
+    if(completos>0){
+      await saveAsistencia(`Sincroniza ${completos} marcas desde Google Form`);
+    }
+
+    let msg = `${completos} día(s) sincronizados ✓`;
+    if(incompletos>0) msg += ` · ${incompletos} con solo entrada o solo salida (esperando la otra marca)`;
+    if(sinCoincidencia.size>0) msg += ` · sin coincidir: ${[...sinCoincidencia].join(', ')}`;
+    if(sinFecha>0) msg += ` · ${sinFecha} fila(s) con fecha ilegible`;
+    resEl.textContent = msg;
+    toast(completos>0 ? 'Asistencia sincronizada ✓' : 'Nada nuevo para sincronizar','ok');
+    renderAsistencia();
+  }catch(e){
+    resEl.textContent = '';
+    toast('Error al sincronizar: '+e.message, 'err');
+  }
+}
+
 /* ============ ASISTENCIA ============ */
 function calcHoras(entrada, salida){
   const [h1,m1] = entrada.split(':').map(Number);
@@ -737,7 +850,7 @@ function calcularPlanilla(){
   document.getElementById('planStats').innerHTML = `
     <div class="stat-row">
       <div class="stat"><div class="n">${resultado.length}</div><div class="l">Empleados a pagar</div></div>
-      <div class="stat"><div class="n mono">₡${totalPagar.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="l">Total del periodo</div></div>
+      <div class="stat"><div class="n mono">$${totalPagar.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="l">Total del periodo</div></div>
     </div>`;
 
   const wrap = document.getElementById('planTableWrap');
@@ -748,8 +861,8 @@ function calcularPlanilla(){
     <td>${r.emp.empresa_cliente||'—'}</td>
     <td>${r.emp.tipo_pago==='fijo'?'Salario fijo':'Por hora'}</td>
     <td class="mono">${r.unidad} ${r.tipoUnidad}</td>
-    <td class="mono">₡${r.tarifa.toLocaleString()}</td>
-    <td class="mono"><strong>₡${r.total.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></td>
+    <td class="mono">$${r.tarifa.toLocaleString()}</td>
+    <td class="mono"><strong>$${r.total.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></td>
   </tr>`).join('')}
   </tbody></table>`;
 }
