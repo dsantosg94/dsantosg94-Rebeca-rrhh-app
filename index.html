@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rebeca · Control de planilla</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#EEF1F6;
@@ -166,9 +167,12 @@
     <div class="sidebar">
       <div class="brand">Rebeca RRHH<span><span class="conn-dot"></span>Conectado</span></div>
       <div class="nav-item active" data-tab="empleados" onclick="switchTab('empleados')">👤 Empleados</div>
+      <div class="nav-item" data-tab="cuentas" onclick="switchTab('cuentas')">🏢 Cuentas</div>
+      <div class="nav-item" data-tab="supervisores" onclick="switchTab('supervisores')">🧑‍💼 Supervisores</div>
       <div class="nav-item" data-tab="herramientas" onclick="switchTab('herramientas')">🧰 Herramientas</div>
       <div class="nav-item" data-tab="asistencia" onclick="switchTab('asistencia')">🎟️ Asistencia</div>
       <div class="nav-item" data-tab="planilla" onclick="switchTab('planilla')">💵 Planilla</div>
+      <div class="nav-item" data-tab="renuncias" onclick="switchTab('renuncias')">🚪 Renuncias</div>
       <div class="sidebar-foot">dsantosg94/Rebeca-rrhh<br>rama main<br><a href="#" onclick="olvidarToken();return false;" style="color:#C6D0E2;">Olvidar token guardado</a></div>
     </div>
 
@@ -177,26 +181,54 @@
       <!-- EMPLEADOS -->
       <div class="tab-section active" id="tab-empleados">
         <div class="topbar">
-          <div><h2>Empleados</h2><div class="sub">Inventario de personal, supervisores y tipo de pago</div></div>
+          <div><h2>Empleados</h2><div class="sub">Inventario de personal y tipo de pago</div></div>
           <button class="btn btn-add" onclick="openEmpForm()">+ Nuevo empleado</button>
         </div>
         <div class="panel">
           <div class="panel-head">
             <div class="toolbar">
-              <select id="fEmpresa" onchange="renderEmpleados()"><option value="">Todas las empresas</option></select>
-              <select id="fRol" onchange="renderEmpleados()">
-                <option value="">Todos los roles</option>
-                <option value="sup">Supervisores</option>
-                <option value="emp">Empleados</option>
-              </select>
+              <select id="fCuenta" onchange="renderEmpleados()"><option value="">Todas las cuentas</option></select>
               <select id="fEstado" onchange="renderEmpleados()">
                 <option value="">Todos los estados</option>
                 <option value="1">Activos</option>
                 <option value="0">Inactivos</option>
               </select>
             </div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('empleados','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('empleados','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('empleados','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('empleados','pdf')">PDF</button>
+            </div>
           </div>
           <div id="empTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- CUENTAS -->
+      <div class="tab-section" id="tab-cuentas">
+        <div class="topbar">
+          <div><h2>Cuentas</h2><div class="sub">Empresas cliente a las que les prestas personal</div></div>
+          <button class="btn btn-add" onclick="openCuentaForm()">+ Nueva cuenta</button>
+        </div>
+        <div class="panel">
+          <div id="cuentasTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- SUPERVISORES -->
+      <div class="tab-section" id="tab-supervisores">
+        <div class="topbar">
+          <div><h2>Supervisores</h2><div class="sub">Personal de la empresa cliente a cargo de tu gente en cada cuenta</div></div>
+          <button class="btn btn-add" onclick="openSupForm()">+ Nuevo supervisor</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="toolbar">
+              <select id="fSupCuenta" onchange="renderSupervisores()"><option value="">Todas las cuentas</option></select>
+            </div>
+          </div>
+          <div id="supTableWrap"></div>
         </div>
       </div>
 
@@ -214,6 +246,12 @@
                 <option value="asignada">Asignadas</option>
                 <option value="disponible">Disponibles</option>
               </select>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('herramientas','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('herramientas','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('herramientas','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('herramientas','pdf')">PDF</button>
             </div>
           </div>
           <div id="herrTableWrap"></div>
@@ -272,6 +310,16 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
         </div>
       </div>
 
+      <!-- RENUNCIAS -->
+      <div class="tab-section" id="tab-renuncias">
+        <div class="topbar">
+          <div><h2>Renuncias</h2><div class="sub">Empleados dados de baja. No se puede dar de baja a alguien con herramientas pendientes de devolver</div></div>
+        </div>
+        <div class="panel">
+          <div id="renunciasTableWrap"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -288,15 +336,17 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
 const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
-const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo'];
+const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv' };
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
+const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
+const SUP_H = ['id','nombre','apellido','telefono','correo','cuenta_id'];
 
 const TOKEN_KEY = 'rebeca_gh_token';
 let TOKEN = '';
-let DB = { empleados:[], herramientas:[], asistencia:[] };
-let SHA = { empleados:null, herramientas:null, asistencia:null };
+let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[] };
+let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null };
 
 function storageAvailable(){
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; }
@@ -338,6 +388,17 @@ async function ghGetFile(path){
   return { text: b64decode(data.content), sha: data.sha };
 }
 
+/* Igual que ghGetFile, pero si el archivo todavía no existe (404) devuelve vacío en vez de fallar.
+   Así "Cuentas" y "Supervisores" se pueden empezar a usar sin tener que crear el CSV a mano en GitHub. */
+async function ghGetFileOpcional(path){
+  try{
+    return await ghGetFile(path);
+  }catch(e){
+    if(String(e.message).includes('No se encontró')) return { text:'', sha:null };
+    throw e;
+  }
+}
+
 async function ghPutFile(path, text, sha, message){
   const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`;
   const body = { message: message || `Actualiza ${path}`, content: b64encode(text), branch: BRANCH };
@@ -377,12 +438,15 @@ async function connect(silent){
   if(!t){ if(!silent){ errEl.textContent='Pega tu token primero.'; errEl.style.display='block'; } return; }
   TOKEN = t;
   try{
-    const [emp, herr, asis] = await Promise.all([
-      ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia)
+    const [emp, herr, asis, cta, sup] = await Promise.all([
+      ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia),
+      ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores)
     ]);
     DB.empleados = parseCSV(emp.text); SHA.empleados = emp.sha;
     DB.herramientas = parseCSV(herr.text); SHA.herramientas = herr.sha;
     DB.asistencia = parseCSV(asis.text); SHA.asistencia = asis.sha;
+    DB.cuentas = parseCSV(cta.text); SHA.cuentas = cta.sha;
+    DB.supervisores = parseCSV(sup.text); SHA.supervisores = sup.sha;
 
     const remember = document.getElementById('rememberToken').checked;
     if(remember && storageAvailable()){
@@ -392,7 +456,7 @@ async function connect(silent){
     document.getElementById('gate').style.display='none';
     document.getElementById('app').style.display='block';
     populateFilters();
-    renderEmpleados(); renderHerramientas(); renderAsistencia();
+    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias();
     try{
       const savedUrl = localStorage.getItem(GFORM_URL_KEY);
       if(savedUrl) document.getElementById('gformUrl').value = savedUrl;
@@ -418,6 +482,12 @@ async function saveHerramientas(msg){
 async function saveAsistencia(msg){
   SHA.asistencia = await ghPutFile(FILES.asistencia, toCSV(ASIS_H, DB.asistencia), SHA.asistencia, msg);
 }
+async function saveCuentas(msg){
+  SHA.cuentas = await ghPutFile(FILES.cuentas, toCSV(CUENTA_H, DB.cuentas), SHA.cuentas, msg);
+}
+async function saveSupervisores(msg){
+  SHA.supervisores = await ghPutFile(FILES.supervisores, toCSV(SUP_H, DB.supervisores), SHA.supervisores, msg);
+}
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
@@ -430,10 +500,17 @@ function switchTab(name){
 }
 
 /* ============ Filters populate ============ */
+function nombreCuenta(cuentaId){
+  const c = DB.cuentas.find(x=>x.id===cuentaId);
+  return c ? c.nombre : '';
+}
 function populateFilters(){
-  const empresas = [...new Set(DB.empleados.map(e=>e.empresa_cliente).filter(Boolean))].sort();
-  const sel = document.getElementById('fEmpresa');
-  sel.innerHTML = '<option value="">Todas las empresas</option>' + empresas.map(e=>`<option value="${e}">${e}</option>`).join('');
+  const cuentasActivas = DB.cuentas.filter(c=>c.activa!=='false');
+  const optsCuenta = cuentasActivas.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  const fCuenta = document.getElementById('fCuenta');
+  if(fCuenta) fCuenta.innerHTML = '<option value="">Todas las cuentas</option>' + optsCuenta;
+  const fSupCuenta = document.getElementById('fSupCuenta');
+  if(fSupCuenta) fSupCuenta.innerHTML = '<option value="">Todas las cuentas</option>' + optsCuenta;
   refreshEmpleadoSelects();
 }
 function refreshEmpleadoSelects(){
@@ -444,33 +521,34 @@ function refreshEmpleadoSelects(){
 }
 
 /* ============ EMPLEADOS ============ */
-function renderEmpleados(){
-  const fEmpresa = document.getElementById('fEmpresa').value;
-  const fRol = document.getElementById('fRol').value;
+function obtenerEmpleadosFiltrados(){
+  const fCuenta = document.getElementById('fCuenta').value;
   const fEstado = document.getElementById('fEstado').value;
   let rows = DB.empleados.slice();
-  if(fEmpresa) rows = rows.filter(e=>e.empresa_cliente===fEmpresa);
-  if(fRol==='sup') rows = rows.filter(e=>e.es_supervisor==='true');
-  if(fRol==='emp') rows = rows.filter(e=>e.es_supervisor!=='true');
+  if(fCuenta) rows = rows.filter(e=>e.cuenta_id===fCuenta);
   if(fEstado==='1') rows = rows.filter(e=>e.activo==='true');
   if(fEstado==='0') rows = rows.filter(e=>e.activo!=='true');
+  return rows;
+}
 
+function renderEmpleados(){
+  const rows = obtenerEmpleadosFiltrados();
   const wrap = document.getElementById('empTableWrap');
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; return; }
   wrap.innerHTML = `<table><thead><tr>
-    <th>Nombre</th><th>Empresa cliente</th><th>Rol</th><th>Contacto</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th><th></th>
+    <th>Nombre</th><th>Cuenta</th><th>Contacto</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th><th></th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
       <td><strong>${e.nombre} ${e.apellido}</strong></td>
-      <td>${e.empresa_cliente||'—'}</td>
-      <td>${e.es_supervisor==='true' ? '<span class="pill pill-amber">Supervisor</span>' : '<span class="pill pill-gray">Empleado</span>'}</td>
+      <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
       <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
       <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
-      <td>${e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>'}</td>
+      <td>${e.fecha_baja ? '<span class="pill pill-red">De baja</span>' : (e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>')}</td>
       <td>
         <button class="btn btn-sm" onclick="openEmpForm('${e.id}')">Editar</button>
+        ${!e.fecha_baja ? `<button class="btn btn-sm btn-danger" onclick="darDeBaja('${e.id}')">Dar de baja</button>` : ''}
         <button class="btn btn-sm btn-danger" onclick="deleteEmpleado('${e.id}')">Eliminar</button>
       </td>
     </tr>`).join('')}
@@ -479,6 +557,8 @@ function renderEmpleados(){
 
 function openEmpForm(id){
   const e = id ? DB.empleados.find(x=>x.id===id) : null;
+  const cuentasActivas = DB.cuentas.filter(c=>c.activa!=='false');
+  const optsCuenta = cuentasActivas.map(c=>`<option value="${c.id}" ${e?.cuenta_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
   document.getElementById('modalBody').innerHTML = `
     <h3>${e?'Editar empleado':'Nuevo empleado'}</h3>
     <div class="form-grid">
@@ -489,7 +569,13 @@ function openEmpForm(id){
       <div><label>Correo</label><input id="m_correo" value="${e?.correo||''}"></div>
       <div><label>Edad</label><input id="m_edad" type="number" value="${e?.edad||''}"></div>
       <div><label>Fecha de nacimiento</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
-      <div class="full"><label>Empresa cliente (donde trabaja)</label><input id="m_empresa" value="${e?.empresa_cliente||''}"></div>
+      <div class="full"><label>Cuenta asignada</label>
+        <select id="m_cuenta">
+          <option value="">Sin asignar</option>
+          ${optsCuenta}
+        </select>
+        ${cuentasActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes cuentas creadas — ve a la pestaña "Cuentas" y crea la primera.</div>' : ''}
+      </div>
       <div>
         <label>Tipo de pago</label>
         <select id="m_tipopago" onchange="document.getElementById('m_tarifaLabel').textContent = this.value==='fijo' ? 'Salario por día' : 'Tarifa por hora'">
@@ -498,8 +584,7 @@ function openEmpForm(id){
         </select>
       </div>
       <div><label id="m_tarifaLabel">${e?.tipo_pago==='fijo'?'Salario por día':'Tarifa por hora'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
-      <div class="full" style="display:flex;gap:24px;margin-top:6px;">
-        <label class="check-row"><input type="checkbox" id="m_supervisor" ${e?.es_supervisor==='true'?'checked':''}> Es supervisor</label>
+      <div class="full" style="margin-top:6px;">
         <label class="check-row"><input type="checkbox" id="m_activo" ${e && e.activo==='false' ? '' : 'checked'}> Activo</label>
       </div>
     </div>
@@ -511,15 +596,21 @@ function openEmpForm(id){
 }
 
 async function submitEmpForm(id){
+  const cuentaId = val('m_cuenta');
   const rec = {
     id: id || uid(),
     nombre: val('m_nombre'), apellido: val('m_apellido'), direccion: val('m_direccion'),
     telefono: val('m_telefono'), correo: val('m_correo'), edad: val('m_edad'),
-    fecha_nacimiento: val('m_fnac'), empresa_cliente: val('m_empresa'),
-    es_supervisor: document.getElementById('m_supervisor').checked ? 'true' : 'false',
+    fecha_nacimiento: val('m_fnac'),
+    cuenta_id: cuentaId,
+    empresa_cliente: nombreCuenta(cuentaId),
+    es_supervisor: 'false',
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
     activo: document.getElementById('m_activo').checked ? 'true' : 'false'
   };
+  const existente = DB.empleados.find(x=>x.id===id);
+  if(existente){ rec.fecha_baja = existente.fecha_baja||''; rec.motivo_baja = existente.motivo_baja||''; rec.es_supervisor = existente.es_supervisor||'false'; }
+  else{ rec.fecha_baja=''; rec.motivo_baja=''; }
   if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
   const idx = DB.empleados.findIndex(x=>x.id===id);
   if(idx>=0) DB.empleados[idx] = rec; else DB.empleados.push(rec);
@@ -529,13 +620,49 @@ async function submitEmpForm(id){
   populateFilters(); renderEmpleados();
 }
 
+async function darDeBaja(id){
+  const e = DB.empleados.find(x=>x.id===id);
+  const pendientes = DB.herramientas.filter(h=>h.empleado_id===id && h.estado==='asignada');
+  if(pendientes.length>0){
+    toast(`No se puede dar de baja: debe devolver primero: ${pendientes.map(h=>h.nombre).join(', ')}`, 'err');
+    return;
+  }
+  document.getElementById('modalBody').innerHTML = `
+    <h3>Dar de baja a ${e.nombre} ${e.apellido}</h3>
+    <div class="form-grid">
+      <div class="full"><label>Fecha de baja</label><input id="b_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="full"><label>Motivo (opcional)</label><input id="b_motivo" placeholder="Renuncia, fin de contrato..."></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" style="border:1px solid var(--red);" onclick="confirmarBaja('${id}')">Confirmar baja</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function confirmarBaja(id){
+  const e = DB.empleados.find(x=>x.id===id);
+  e.activo = 'false';
+  e.fecha_baja = val('b_fecha') || new Date().toISOString().slice(0,10);
+  e.motivo_baja = val('b_motivo');
+  closeModal();
+  try{ await saveEmpleados(`Da de baja a ${e.nombre} ${e.apellido}`); toast('Empleado dado de baja ✓','ok'); }
+  catch(err){ toast('No se pudo guardar: '+err.message,'err'); }
+  renderEmpleados(); renderRenuncias();
+}
+
 async function deleteEmpleado(id){
   const e = DB.empleados.find(x=>x.id===id);
+  const pendientes = DB.herramientas.filter(h=>h.empleado_id===id && h.estado==='asignada');
+  if(pendientes.length>0){
+    toast(`No se puede eliminar: debe devolver primero: ${pendientes.map(h=>h.nombre).join(', ')}`, 'err');
+    return;
+  }
   if(!confirm(`¿Eliminar a ${e.nombre} ${e.apellido}?`)) return;
   DB.empleados = DB.empleados.filter(x=>x.id!==id);
   try{ await saveEmpleados(`Elimina empleado ${e.nombre} ${e.apellido}`); toast('Eliminado ✓','ok'); }
   catch(err){ toast('No se pudo guardar: '+err.message,'err'); }
-  populateFilters(); renderEmpleados();
+  populateFilters(); renderEmpleados(); renderRenuncias();
 }
 
 /* ============ HERRAMIENTAS ============ */
@@ -882,6 +1009,238 @@ function exportarCSV(){
   link.download = `planilla_${val('planDesde')}_a_${val('planHasta')}.csv`;
   link.click();
   toast('CSV descargado ✓','ok');
+}
+
+/* ============ CUENTAS ============ */
+function renderCuentas(){
+  const wrap = document.getElementById('cuentasTableWrap');
+  if(DB.cuentas.length===0){ wrap.innerHTML='<div class="empty-state">Sin cuentas todavía. Crea la primera con "+ Nueva cuenta".</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${DB.cuentas.map(c=>`<tr>
+    <td><strong>${c.nombre}</strong></td>
+    <td class="mono">${c.codigo||'—'}</td>
+    <td>${c.contacto_principal||'—'}</td>
+    <td class="mono">${c.telefono||'—'}</td>
+    <td>${c.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
+    <td>
+      <button class="btn btn-sm" onclick="openCuentaForm('${c.id}')">Editar</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteCuenta('${c.id}')">Eliminar</button>
+    </td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function openCuentaForm(id){
+  const c = id ? DB.cuentas.find(x=>x.id===id) : null;
+  document.getElementById('modalBody').innerHTML = `
+    <h3>${c?'Editar cuenta':'Nueva cuenta'}</h3>
+    <div class="form-grid">
+      <div class="full"><label>Nombre de la empresa cliente</label><input id="c_nombre" value="${c?.nombre||''}"></div>
+      <div><label>Código (opcional)</label><input id="c_codigo" value="${c?.codigo||''}" placeholder="PRW, DSZ..."></div>
+      <div><label>Teléfono</label><input id="c_telefono" value="${c?.telefono||''}"></div>
+      <div class="full"><label>Contacto principal</label><input id="c_contacto" value="${c?.contacto_principal||''}"></div>
+      <div class="full"><label>Dirección</label><input id="c_direccion" value="${c?.direccion||''}"></div>
+      <div class="full"><label class="check-row"><input type="checkbox" id="c_activa" ${c && c.activa==='false' ? '' : 'checked'}> Cuenta activa</label></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitCuentaForm('${id||''}')">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitCuentaForm(id){
+  const rec = {
+    id: id || uid(),
+    nombre: val('c_nombre'), codigo: val('c_codigo'), contacto_principal: val('c_contacto'),
+    telefono: val('c_telefono'), direccion: val('c_direccion'),
+    activa: document.getElementById('c_activa').checked ? 'true' : 'false'
+  };
+  if(!rec.nombre){ toast('El nombre de la cuenta es obligatorio','err'); return; }
+  const idx = DB.cuentas.findIndex(x=>x.id===id);
+  if(idx>=0) DB.cuentas[idx] = rec; else DB.cuentas.push(rec);
+  closeModal();
+  try{ await saveCuentas(idx>=0?`Actualiza cuenta ${rec.nombre}`:`Agrega cuenta ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderCuentas();
+}
+
+async function deleteCuenta(id){
+  const c = DB.cuentas.find(x=>x.id===id);
+  const enUso = DB.empleados.some(e=>e.cuenta_id===id) || DB.supervisores.some(s=>s.cuenta_id===id);
+  if(enUso){ toast('No se puede eliminar: hay empleados o supervisores asignados a esta cuenta','err'); return; }
+  if(!confirm(`¿Eliminar la cuenta "${c.nombre}"?`)) return;
+  DB.cuentas = DB.cuentas.filter(x=>x.id!==id);
+  try{ await saveCuentas(`Elimina cuenta ${c.nombre}`); toast('Eliminada ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderCuentas();
+}
+
+/* ============ SUPERVISORES ============ */
+function renderSupervisores(){
+  const fCuenta = document.getElementById('fSupCuenta').value;
+  let rows = DB.supervisores.slice();
+  if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
+  const wrap = document.getElementById('supTableWrap');
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin supervisores todavía.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Cuenta</th><th>Contacto</th><th></th></tr></thead><tbody>
+  ${rows.map(s=>`<tr>
+    <td><strong>${s.nombre} ${s.apellido}</strong></td>
+    <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
+    <td class="mono" style="font-size:12px;">${s.telefono||''}<br>${s.correo||''}</td>
+    <td>
+      <button class="btn btn-sm" onclick="openSupForm('${s.id}')">Editar</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteSupervisor('${s.id}')">Eliminar</button>
+    </td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function openSupForm(id){
+  const s = id ? DB.supervisores.find(x=>x.id===id) : null;
+  const optsCuenta = DB.cuentas.map(c=>`<option value="${c.id}" ${s?.cuenta_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
+  document.getElementById('modalBody').innerHTML = `
+    <h3>${s?'Editar supervisor':'Nuevo supervisor'}</h3>
+    <div class="sub" style="margin-bottom:12px;">Persona de la empresa cliente a cargo del personal que le prestas — no es un empleado tuyo, no recibe pago de tu parte.</div>
+    <div class="form-grid">
+      <div><label>Nombre</label><input id="s_nombre" value="${s?.nombre||''}"></div>
+      <div><label>Apellido</label><input id="s_apellido" value="${s?.apellido||''}"></div>
+      <div><label>Teléfono</label><input id="s_telefono" value="${s?.telefono||''}"></div>
+      <div><label>Correo</label><input id="s_correo" value="${s?.correo||''}"></div>
+      <div class="full"><label>Cuenta</label><select id="s_cuenta"><option value="">Sin asignar</option>${optsCuenta}</select></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitSupForm('${id||''}')">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitSupForm(id){
+  const rec = {
+    id: id || uid(), nombre: val('s_nombre'), apellido: val('s_apellido'),
+    telefono: val('s_telefono'), correo: val('s_correo'), cuenta_id: val('s_cuenta')
+  };
+  if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
+  const idx = DB.supervisores.findIndex(x=>x.id===id);
+  if(idx>=0) DB.supervisores[idx] = rec; else DB.supervisores.push(rec);
+  closeModal();
+  try{ await saveSupervisores(idx>=0?`Actualiza supervisor ${rec.nombre}`:`Agrega supervisor ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderSupervisores();
+}
+
+async function deleteSupervisor(id){
+  const s = DB.supervisores.find(x=>x.id===id);
+  if(!confirm(`¿Eliminar a ${s.nombre} ${s.apellido}?`)) return;
+  DB.supervisores = DB.supervisores.filter(x=>x.id!==id);
+  try{ await saveSupervisores(`Elimina supervisor ${s.nombre} ${s.apellido}`); toast('Eliminado ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderSupervisores();
+}
+
+/* ============ RENUNCIAS ============ */
+function renderRenuncias(){
+  const rows = DB.empleados.filter(e=>e.fecha_baja).sort((a,b)=>(b.fecha_baja||'').localeCompare(a.fecha_baja||''));
+  const wrap = document.getElementById('renunciasTableWrap');
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Todavía no hay bajas registradas.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Cuenta</th><th>Fecha de baja</th><th>Motivo</th></tr></thead><tbody>
+  ${rows.map(e=>`<tr>
+    <td><strong>${e.nombre} ${e.apellido}</strong></td>
+    <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
+    <td class="mono">${e.fecha_baja}</td>
+    <td>${e.motivo_baja||'—'}</td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+/* ============ EXPORTAR (Copiar / Excel / CSV / PDF) ============ */
+function descargarBlob(content, filename, type){
+  const blob = new Blob([content], {type});
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+}
+
+function filasAObjetos(rows, columnas){
+  return rows.map(r => { const o = {}; columnas.forEach(c => o[c.label] = c.value(r)); return o; });
+}
+
+function copiarAlPortapapeles(rows, columnas){
+  const encabezado = columnas.map(c=>c.label).join('\t');
+  const lineas = rows.map(r => columnas.map(c=>String(c.value(r)).replace(/\t|\n/g,' ')).join('\t'));
+  const texto = [encabezado, ...lineas].join('\n');
+  navigator.clipboard.writeText(texto)
+    .then(()=>toast('Copiado al portapapeles ✓','ok'))
+    .catch(()=>toast('No se pudo copiar (el navegador bloqueó el acceso al portapapeles)','err'));
+}
+
+function exportarExcelGenerico(rows, columnas, filename){
+  const datos = filasAObjetos(rows, columnas);
+  const ws = XLSX.utils.json_to_sheet(datos);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+  XLSX.writeFile(wb, filename + '.xlsx');
+  toast('Excel descargado ✓','ok');
+}
+
+function exportarCSVGenerico(rows, columnas, filename){
+  const datos = filasAObjetos(rows, columnas);
+  const csv = Papa.unparse(datos);
+  descargarBlob(csv, filename + '.csv', 'text/csv;charset=utf-8;');
+  toast('CSV descargado ✓','ok');
+}
+
+function exportarPDFGenerico(rows, columnas, titulo){
+  const w = window.open('', '_blank');
+  if(!w){ toast('El navegador bloqueó la ventana emergente. Habilítala e intenta de nuevo.','err'); return; }
+  const headHtml = columnas.map(c=>`<th>${c.label}</th>`).join('');
+  const bodyHtml = rows.map(r=>`<tr>${columnas.map(c=>`<td>${c.value(r)}</td>`).join('')}</tr>`).join('');
+  w.document.write(`<html><head><title>${titulo}</title><meta charset="UTF-8"><style>
+    body{font-family:Arial,sans-serif;padding:24px;color:#1B2A4A;}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-top:14px;}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;}
+    th{background:#EEF1F6;}
+    h2{font-family:Arial,sans-serif;}
+  </style></head><body><h2>${titulo}</h2><table><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(), 350);
+}
+
+const COLUMNAS_EMPLEADOS = [
+  { label:'Nombre', value: e => `${e.nombre} ${e.apellido}` },
+  { label:'Cuenta', value: e => nombreCuenta(e.cuenta_id) || '' },
+  { label:'Teléfono', value: e => e.telefono||'' },
+  { label:'Correo', value: e => e.correo||'' },
+  { label:'Dirección', value: e => e.direccion||'' },
+  { label:'Tipo de pago', value: e => e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora' },
+  { label:'Tarifa', value: e => e.tarifa||'' },
+  { label:'Estado', value: e => e.fecha_baja ? 'De baja' : (e.activo==='true' ? 'Activo' : 'Inactivo') }
+];
+const COLUMNAS_HERRAMIENTAS = [
+  { label:'Herramienta', value: h => h.nombre },
+  { label:'Tipo', value: h => h.tipo||'' },
+  { label:'Asignada a', value: h => { const emp = DB.empleados.find(e=>e.id===h.empleado_id); return emp ? emp.nombre+' '+emp.apellido : ''; } },
+  { label:'Fecha asignación', value: h => h.fecha_asignacion||'' },
+  { label:'Estado', value: h => h.estado==='asignada' ? 'Asignada' : 'Disponible' }
+];
+
+function accionExportar(seccion, tipo){
+  let rows, columnas, filename, titulo;
+  if(seccion==='empleados'){ rows = obtenerEmpleadosFiltrados(); columnas = COLUMNAS_EMPLEADOS; filename='empleados'; titulo='Empleados'; }
+  else if(seccion==='herramientas'){
+    const fEstado = document.getElementById('fHerrEstado').value;
+    rows = DB.herramientas.slice(); if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
+    columnas = COLUMNAS_HERRAMIENTAS; filename='herramientas'; titulo='Herramientas';
+  } else return;
+
+  if(rows.length===0){ toast('No hay filas para exportar con los filtros actuales','err'); return; }
+  if(tipo==='copiar') copiarAlPortapapeles(rows, columnas);
+  else if(tipo==='excel') exportarExcelGenerico(rows, columnas, filename);
+  else if(tipo==='csv') exportarCSVGenerico(rows, columnas, filename);
+  else if(tipo==='pdf') exportarPDFGenerico(rows, columnas, titulo);
 }
 
 /* ============ Utils ============ */
