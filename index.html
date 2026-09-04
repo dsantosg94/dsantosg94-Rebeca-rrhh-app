@@ -60,6 +60,8 @@
   .main{padding:28px 34px;overflow-x:hidden;min-width:0;}
   .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;min-width:0;max-width:100%;}
   .table-scroll table{margin-bottom:2px;}
+  .col-actions{position:sticky;left:0;background:#fff;z-index:2;box-shadow:2px 0 6px -3px rgba(27,42,74,.15);white-space:nowrap;}
+  th.col-actions{background:var(--surface);z-index:3;}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;}
   .topbar h2{font-size:21px;}
   .topbar .sub{color:var(--ink-soft);font-size:13px;margin-top:2px;}
@@ -754,10 +756,14 @@ function renderEmpleados(){
   const wrap = document.getElementById('empTableWrap');
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; return; }
   wrap.innerHTML = `<table><thead><tr>
-    <th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Seguro Social</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th><th></th>
+    <th class="col-actions"></th><th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Seguro Social</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
+      <td class="col-actions">
+        <button class="btn btn-sm" onclick="openEmpForm('${e.id}')">Editar</button>
+        ${!e.fecha_baja ? `<button class="btn btn-sm btn-danger" onclick="darDeBaja('${e.id}')">Dar de baja</button>` : ''}
+      </td>
       <td><strong>${e.nombre} ${e.apellido}</strong></td>
       <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
       <td>${nombreSala(e.sala_id)||'—'}</td>
@@ -768,10 +774,6 @@ function renderEmpleados(){
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
       <td>${pillVisa(e)}</td>
       <td>${e.fecha_baja ? '<span class="pill pill-red">De baja</span>' : (e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>')}</td>
-      <td>
-        <button class="btn btn-sm" onclick="openEmpForm('${e.id}')">Editar</button>
-        ${!e.fecha_baja ? `<button class="btn btn-sm btn-danger" onclick="darDeBaja('${e.id}')">Dar de baja</button>` : ''}
-      </td>
     </tr>`).join('')}
   </tbody></table>`;
 }
@@ -923,19 +925,19 @@ function renderHerramientas(){
   if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
   const wrap = document.getElementById('herrTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">No hay herramientas registradas.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Herramienta</th><th>Tipo</th><th>Asignada a</th><th>Desde</th><th>Estado</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Herramienta</th><th>Tipo</th><th>Asignada a</th><th>Desde</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(h=>{
     const emp = DB.empleados.find(e=>e.id===h.empleado_id);
     return `<tr>
+      <td class="col-actions">
+        ${h.estado==='asignada' ? `<button class="btn btn-sm" onclick="devolverHerramienta('${h.id}')">Marcar devuelta</button>` : `<button class="btn btn-sm" onclick="asignarHerramienta('${h.id}')">Asignar</button>`}
+        <button class="btn btn-sm btn-danger" onclick="deleteHerramienta('${h.id}')">Eliminar</button>
+      </td>
       <td><strong>${h.nombre}</strong></td>
       <td>${h.tipo||'—'}</td>
       <td>${emp ? emp.nombre+' '+emp.apellido : '—'}</td>
       <td class="mono">${h.fecha_asignacion||'—'}</td>
       <td>${h.estado==='asignada' ? '<span class="pill pill-amber">Asignada</span>' : '<span class="pill pill-green">Disponible</span>'}</td>
-      <td>
-        ${h.estado==='asignada' ? `<button class="btn btn-sm" onclick="devolverHerramienta('${h.id}')">Marcar devuelta</button>` : `<button class="btn btn-sm" onclick="asignarHerramienta('${h.id}')">Asignar</button>`}
-        <button class="btn btn-sm btn-danger" onclick="deleteHerramienta('${h.id}')">Eliminar</button>
-      </td>
     </tr>`;
   }).join('')}
   </tbody></table>`;
@@ -1269,17 +1271,17 @@ function exportarCSV(){
 function renderCuentas(){
   const wrap = document.getElementById('cuentasTableWrap');
   if(DB.cuentas.length===0){ wrap.innerHTML='<div class="empty-state">Sin cuentas todavía. Crea la primera con "+ Nueva cuenta".</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>
   ${DB.cuentas.map(c=>`<tr>
+    <td class="col-actions">
+      <button class="btn btn-sm" onclick="openCuentaForm('${c.id}')">Editar</button>
+      <button class="btn btn-sm" onclick="toggleCuentaActiva('${c.id}')">${c.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
+    </td>
     <td><strong>${c.nombre}</strong></td>
     <td class="mono">${c.codigo||'—'}</td>
     <td>${c.contacto_principal||'—'}</td>
     <td class="mono">${c.telefono||'—'}</td>
     <td>${c.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
-    <td>
-      <button class="btn btn-sm" onclick="openCuentaForm('${c.id}')">Editar</button>
-      <button class="btn btn-sm" onclick="toggleCuentaActiva('${c.id}')">${c.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
-    </td>
   </tr>`).join('')}
   </tbody></table>`;
 }
@@ -1334,15 +1336,15 @@ function renderSalas(){
   if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
   const wrap = document.getElementById('salasTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin salas de venta todavía. Crea la primera con "+ Nueva sala".</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Sala</th><th>Cuenta</th><th>Estado</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Sala</th><th>Cuenta</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
-    <td><strong>${s.nombre}</strong></td>
-    <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
-    <td>${s.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
-    <td>
+    <td class="col-actions">
       <button class="btn btn-sm" onclick="openSalaForm('${s.id}')">Editar</button>
       <button class="btn btn-sm" onclick="toggleSalaActiva('${s.id}')">${s.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
     </td>
+    <td><strong>${s.nombre}</strong></td>
+    <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
+    <td>${s.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
   </tr>`).join('')}
   </tbody></table>`;
 }
@@ -1393,14 +1395,14 @@ async function toggleSalaActiva(id){
 function renderAfps(){
   const wrap = document.getElementById('afpsTableWrap');
   if(DB.afps.length===0){ wrap.innerHTML='<div class="empty-state">Sin AFP registradas. Agrega la primera con "+ Nueva AFP".</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Estado</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Estado</th></tr></thead><tbody>
   ${DB.afps.map(a=>`<tr>
-    <td><strong>${a.nombre}</strong></td>
-    <td>${a.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
-    <td>
+    <td class="col-actions">
       <button class="btn btn-sm" onclick="openAfpForm('${a.id}')">Editar</button>
       <button class="btn btn-sm btn-danger" onclick="deleteAfp('${a.id}')">Eliminar</button>
     </td>
+    <td><strong>${a.nombre}</strong></td>
+    <td>${a.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
   </tr>`).join('')}
   </tbody></table>`;
 }
@@ -1449,15 +1451,15 @@ function renderIncapacidades(){
   if(fEmp) rows = rows.filter(i=>i.empleado_id===fEmp);
   const wrap = document.getElementById('incapTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin incapacidades registradas.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Empleado</th><th>Fecha inicio</th><th>Días</th><th>Motivo</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Empleado</th><th>Fecha inicio</th><th>Días</th><th>Motivo</th></tr></thead><tbody>
   ${rows.map(i=>{
     const emp = DB.empleados.find(e=>e.id===i.empleado_id);
     return `<tr>
+      <td class="col-actions"><button class="btn btn-sm btn-danger" onclick="deleteIncapacidad('${i.id}')">Eliminar</button></td>
       <td><strong>${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}</strong></td>
       <td class="mono">${i.fecha_inicio||'—'}</td>
       <td class="mono">${i.dias||0}</td>
       <td>${i.motivo||'—'}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="deleteIncapacidad('${i.id}')">Eliminar</button></td>
     </tr>`;
   }).join('')}
   </tbody></table>`;
@@ -1509,16 +1511,16 @@ function renderSupervisores(){
   if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
   const wrap = document.getElementById('supTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin supervisores todavía.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Sala de venta</th><th>Cuenta</th><th>Contacto</th><th></th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Sala de venta</th><th>Cuenta</th><th>Contacto</th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
+    <td class="col-actions">
+      <button class="btn btn-sm" onclick="openSupForm('${s.id}')">Editar</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteSupervisor('${s.id}')">Eliminar</button>
+    </td>
     <td><strong>${s.nombre} ${s.apellido}</strong></td>
     <td>${nombreSala(s.sala_id)||'—'}</td>
     <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
     <td class="mono" style="font-size:12px;">${s.telefono||''}<br>${s.correo||''}</td>
-    <td>
-      <button class="btn btn-sm" onclick="openSupForm('${s.id}')">Editar</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteSupervisor('${s.id}')">Eliminar</button>
-    </td>
   </tr>`).join('')}
   </tbody></table>`;
 }
