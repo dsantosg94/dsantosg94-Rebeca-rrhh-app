@@ -1064,7 +1064,7 @@ function renderHerramientas(){
   const wrap = document.getElementById('herrTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">No hay herramientas registradas.</div>'; actualizarBarraHerr(); return; }
   const todosMarcados = rows.length>0 && rows.every(h=>HERR_SELECCIONADOS.has(h.id));
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosHerr(this.checked)"></th><th>Herramienta</th><th>Tipo</th><th>Asignada a</th><th>Desde</th><th>Estado</th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosHerr(this.checked)"></th><th>Herramienta</th><th>Tipo</th><th>Asignada a</th><th>Cuenta</th><th>Sala de venta</th><th>Desde</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(h=>{
     const emp = DB.empleados.find(e=>e.id===h.empleado_id);
     return `<tr>
@@ -1072,6 +1072,8 @@ function renderHerramientas(){
       <td><strong>${h.nombre}</strong></td>
       <td>${h.tipo||'—'}</td>
       <td>${emp ? emp.nombre+' '+emp.apellido : '—'}</td>
+      <td>${emp ? (nombreCuenta(emp.cuenta_id)||'—') : '—'}</td>
+      <td>${emp ? (nombreSala(emp.sala_id)||'—') : '—'}</td>
       <td class="mono">${h.fecha_asignacion||'—'}</td>
       <td>${h.estado==='asignada' ? '<span class="pill pill-amber">Asignada</span>' : '<span class="pill pill-green">Disponible</span>'}</td>
     </tr>`;
@@ -2061,6 +2063,8 @@ const COLUMNAS_HERRAMIENTAS = [
   { label:'Herramienta', value: h => h.nombre },
   { label:'Tipo', value: h => h.tipo||'' },
   { label:'Asignada a', value: h => { const emp = DB.empleados.find(e=>e.id===h.empleado_id); return emp ? emp.nombre+' '+emp.apellido : ''; } },
+  { label:'Cuenta', value: h => { const emp = DB.empleados.find(e=>e.id===h.empleado_id); return emp ? (nombreCuenta(emp.cuenta_id)||'') : ''; } },
+  { label:'Sala de venta', value: h => { const emp = DB.empleados.find(e=>e.id===h.empleado_id); return emp ? (nombreSala(emp.sala_id)||'') : ''; } },
   { label:'Fecha asignación', value: h => h.fecha_asignacion||'' },
   { label:'Estado', value: h => h.estado==='asignada' ? 'Asignada' : 'Disponible' }
 ];
