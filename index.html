@@ -883,7 +883,7 @@ async function darDeBajaMultiple(ids){
     </div>
     <div class="form-actions">
       <button class="btn" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-danger" style="border:1px solid var(--red);" onclick="confirmarBajaMultiple(${JSON.stringify(ids)})">Confirmar baja</button>
+      <button class="btn btn-danger" style="border:1px solid var(--red);" onclick='confirmarBajaMultiple(${JSON.stringify(ids)})'>Confirmar baja</button>
     </div>`;
   document.getElementById('overlay').classList.add('show');
 }
@@ -1083,7 +1083,7 @@ function abrirAsignarMultiple(ids){
     </div></div>
     <div class="form-actions">
       <button class="btn" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-add" onclick="confirmarAsignacionMultiple(${JSON.stringify(ids)})">Asignar</button>
+      <button class="btn btn-add" onclick='confirmarAsignacionMultiple(${JSON.stringify(ids)})'>Asignar</button>
     </div>`;
   document.getElementById('overlay').classList.add('show');
 }
