@@ -75,9 +75,9 @@
   .btn-danger:hover{background:var(--red-bg);}
   .btn-sm{padding:5px 10px;font-size:12px;}
 
-  table{width:100%;border-collapse:collapse;font-size:13.5px;}
-  th{text-align:left;color:var(--ink-soft);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--border);}
-  td{padding:10px 10px;border-bottom:1px solid #F0F2F6;}
+  table{width:max-content;min-width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:var(--ink-soft);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  td{padding:10px 10px;border-bottom:1px solid #F0F2F6;white-space:nowrap;}
   tr:hover td{background:#FAFBFD;}
   .mono{font-family:var(--mono);}
   .empty-state{padding:36px 10px;text-align:center;color:var(--ink-soft);font-size:14px;}
@@ -752,7 +752,7 @@ function renderEmpleados(){
   const wrap = document.getElementById('empTableWrap');
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; return; }
   wrap.innerHTML = `<table><thead><tr>
-    <th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th><th></th>
+    <th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Seguro Social</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th><th></th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
@@ -761,6 +761,7 @@ function renderEmpleados(){
       <td>${nombreSala(e.sala_id)||'—'}</td>
       <td>${supervisorDeSala(e.sala_id)||'—'}</td>
       <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
+      <td class="mono">${e.seguro_social||'—'}</td>
       <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
       <td>${pillVisa(e)}</td>
