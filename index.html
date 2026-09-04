@@ -250,6 +250,12 @@
               <button class="btn btn-sm" onclick="accionExportar('cuentas','pdf')">PDF</button>
             </div>
           </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionCuentaSeleccion('editar')">Editar</button>
+            <button class="btn" onclick="accionCuentaSeleccion('activar')">Activar</button>
+            <button class="btn btn-danger" onclick="accionCuentaSeleccion('desactivar')">Desactivar</button>
+            <span class="sub" id="cuentaSeleccionInfo">Ninguna cuenta seleccionada</span>
+          </div>
           <div id="cuentasTableWrap" class="table-scroll"></div>
         </div>
       </div>
@@ -273,6 +279,12 @@
               <button class="btn btn-sm" onclick="accionExportar('salas','pdf')">PDF</button>
             </div>
           </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionSalaSeleccion('editar')">Editar</button>
+            <button class="btn" onclick="accionSalaSeleccion('activar')">Activar</button>
+            <button class="btn btn-danger" onclick="accionSalaSeleccion('desactivar')">Desactivar</button>
+            <span class="sub" id="salaSeleccionInfo">Ninguna sala seleccionada</span>
+          </div>
           <div id="salasTableWrap" class="table-scroll"></div>
         </div>
       </div>
@@ -295,6 +307,11 @@
               <button class="btn btn-sm" onclick="accionExportar('supervisores','pdf')">PDF</button>
             </div>
           </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionSupSeleccion('editar')">Editar</button>
+            <button class="btn btn-danger" onclick="accionSupSeleccion('eliminar')">Eliminar</button>
+            <span class="sub" id="supSeleccionInfo">Ningún supervisor seleccionado</span>
+          </div>
           <div id="supTableWrap" class="table-scroll"></div>
         </div>
       </div>
@@ -314,6 +331,11 @@
               <button class="btn btn-sm" onclick="accionExportar('afps','csv')">CSV</button>
               <button class="btn btn-sm" onclick="accionExportar('afps','pdf')">PDF</button>
             </div>
+          </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionAfpSeleccion('editar')">Editar</button>
+            <button class="btn btn-danger" onclick="accionAfpSeleccion('eliminar')">Eliminar</button>
+            <span class="sub" id="afpSeleccionInfo">Ninguna AFP seleccionada</span>
           </div>
           <div id="afpsTableWrap" class="table-scroll"></div>
         </div>
@@ -342,6 +364,12 @@
               <button class="btn btn-sm" onclick="accionExportar('herramientas','pdf')">PDF</button>
             </div>
           </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionHerrSeleccion('asignar')">Asignar</button>
+            <button class="btn" onclick="accionHerrSeleccion('devolver')">Marcar devuelta</button>
+            <button class="btn btn-danger" onclick="accionHerrSeleccion('eliminar')">Eliminar</button>
+            <span class="sub" id="herrSeleccionInfo">Ninguna herramienta seleccionada</span>
+          </div>
           <div id="herrTableWrap" class="table-scroll"></div>
         </div>
       </div>
@@ -364,6 +392,10 @@
               <button class="btn btn-sm" onclick="accionExportar('incapacidades','csv')">CSV</button>
               <button class="btn btn-sm" onclick="accionExportar('incapacidades','pdf')">PDF</button>
             </div>
+          </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn btn-danger" onclick="accionIncapSeleccion('eliminar')">Eliminar</button>
+            <span class="sub" id="incapSeleccionInfo">Ninguna incapacidad seleccionada</span>
           </div>
           <div id="incapTableWrap" class="table-scroll"></div>
         </div>
@@ -978,7 +1010,8 @@ async function submitEmpForm(id){
 }
 
 /* ============ HERRAMIENTAS ============ */
-function renderHerramientas(){
+const HERR_SELECCIONADOS = new Set();
+function obtenerHerramientasFiltradas(){
   const fEstado = document.getElementById('fHerrEstado').value;
   let rows = DB.herramientas.slice();
   if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
@@ -990,16 +1023,18 @@ function renderHerramientas(){
       return h.nombre.toLowerCase().includes(busqueda) || nombreEmp.includes(busqueda);
     });
   }
+  return rows;
+}
+function renderHerramientas(){
+  const rows = obtenerHerramientasFiltradas();
   const wrap = document.getElementById('herrTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">No hay herramientas registradas.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Herramienta</th><th>Tipo</th><th>Asignada a</th><th>Desde</th><th>Estado</th></tr></thead><tbody>
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">No hay herramientas registradas.</div>'; actualizarBarraHerr(); return; }
+  const todosMarcados = rows.length>0 && rows.every(h=>HERR_SELECCIONADOS.has(h.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosHerr(this.checked)"></th><th>Herramienta</th><th>Tipo</th><th>Asignada a</th><th>Desde</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(h=>{
     const emp = DB.empleados.find(e=>e.id===h.empleado_id);
     return `<tr>
-      <td class="col-actions">
-        ${h.estado==='asignada' ? `<button class="btn-icon" title="Marcar devuelta" onclick="devolverHerramienta('${h.id}')">↩️</button>` : `<button class="btn-icon" title="Asignar" onclick="asignarHerramienta('${h.id}')">👤</button>`}
-        <button class="btn-icon btn-danger" title="Eliminar" onclick="deleteHerramienta('${h.id}')">🗑️</button>
-      </td>
+      <td class="col-actions"><input type="checkbox" ${HERR_SELECCIONADOS.has(h.id)?'checked':''} onchange="toggleHerrSeleccion('${h.id}', this.checked)"></td>
       <td><strong>${h.nombre}</strong></td>
       <td>${h.tipo||'—'}</td>
       <td>${emp ? emp.nombre+' '+emp.apellido : '—'}</td>
@@ -1008,6 +1043,81 @@ function renderHerramientas(){
     </tr>`;
   }).join('')}
   </tbody></table>`;
+  actualizarBarraHerr();
+}
+function toggleHerrSeleccion(id, checked){ checked ? HERR_SELECCIONADOS.add(id) : HERR_SELECCIONADOS.delete(id); actualizarBarraHerr(); }
+function toggleTodosHerr(checked){
+  obtenerHerramientasFiltradas().forEach(h => checked ? HERR_SELECCIONADOS.add(h.id) : HERR_SELECCIONADOS.delete(h.id));
+  renderHerramientas();
+}
+function actualizarBarraHerr(){
+  const info = document.getElementById('herrSeleccionInfo'); if(!info) return;
+  const n = HERR_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ninguna herramienta seleccionada' : (n===1 ? '1 herramienta seleccionada' : `${n} herramientas seleccionadas`);
+}
+
+function accionHerrSeleccion(accion){
+  const ids = [...HERR_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos una herramienta primero','err'); return; }
+  const seleccionadas = ids.map(id=>DB.herramientas.find(h=>h.id===id)).filter(Boolean);
+  if(accion==='asignar'){
+    if(seleccionadas.some(h=>h.estado==='asignada')){ toast('Solo puedes asignar herramientas que estén "Disponible". Revisa tu selección.','err'); return; }
+    abrirAsignarMultiple(ids);
+  } else if(accion==='devolver'){
+    if(seleccionadas.some(h=>h.estado!=='asignada')){ toast('Solo puedes marcar devueltas herramientas que estén "Asignada". Revisa tu selección.','err'); return; }
+    devolverHerramientasMultiple(ids);
+  } else if(accion==='eliminar'){
+    eliminarHerramientasMultiple(ids);
+  }
+}
+
+function abrirAsignarMultiple(ids){
+  const activos = DB.empleados.filter(e=>e.activo==='true');
+  const opcionesEmp = activos.map(e=>({ id:e.id, label: `${e.nombre} ${e.apellido}` }));
+  document.getElementById('modalBody').innerHTML = `
+    <h3>Asignar ${ids.length>1?ids.length+' herramientas':'herramienta'}</h3>
+    <div class="form-grid"><div class="full"><label>Empleado</label>
+      ${comboHTML('h_asignar_emp', opcionesEmp, '', '', 'Buscar empleado...')}
+    </div></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="confirmarAsignacionMultiple(${JSON.stringify(ids)})">Asignar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+async function confirmarAsignacionMultiple(ids){
+  const empId = comboValor('h_asignar_emp');
+  if(!empId){ toast('Elige un empleado de la lista','err'); return; }
+  const hoy = new Date().toISOString().slice(0,10);
+  ids.forEach(id=>{
+    const h = DB.herramientas.find(x=>x.id===id);
+    if(h){ h.empleado_id = empId; h.fecha_asignacion = hoy; h.fecha_devolucion=''; h.estado='asignada'; }
+  });
+  closeModal();
+  try{ await saveHerramientas(`Asigna ${ids.length} herramienta(s)`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  ids.forEach(id=>HERR_SELECCIONADOS.delete(id));
+  renderHerramientas();
+}
+async function devolverHerramientasMultiple(ids){
+  const hoy = new Date().toISOString().slice(0,10);
+  ids.forEach(id=>{
+    const h = DB.herramientas.find(x=>x.id===id);
+    if(h){ h.fecha_devolucion = hoy; h.estado='disponible'; h.empleado_id=''; }
+  });
+  try{ await saveHerramientas(`Devuelve ${ids.length} herramienta(s)`); toast('Marcada(s) como devuelta(s) ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  ids.forEach(id=>HERR_SELECCIONADOS.delete(id));
+  renderHerramientas();
+}
+async function eliminarHerramientasMultiple(ids){
+  const nombres = ids.map(id=>DB.herramientas.find(h=>h.id===id)).filter(Boolean).map(h=>h.nombre).join(', ');
+  if(!confirm(`¿Eliminar ${ids.length>1?ids.length+' herramientas':nombres}?`)) return;
+  DB.herramientas = DB.herramientas.filter(h=>!ids.includes(h.id));
+  ids.forEach(id=>HERR_SELECCIONADOS.delete(id));
+  try{ await saveHerramientas(`Elimina ${ids.length} herramienta(s)`); toast('Eliminada(s) ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderHerramientas();
 }
 
 function openHerrForm(){
@@ -1042,46 +1152,6 @@ async function submitHerrForm(){
   DB.herramientas.push(rec);
   closeModal();
   try{ await saveHerramientas(`Agrega herramienta ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
-  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  renderHerramientas();
-}
-
-async function asignarHerramienta(id){
-  const activos = DB.empleados.filter(e=>e.activo==='true');
-  const opcionesEmp = activos.map(e=>({ id:e.id, label: `${e.nombre} ${e.apellido}` }));
-  document.getElementById('modalBody').innerHTML = `
-    <h3>Asignar herramienta</h3>
-    <div class="form-grid"><div class="full"><label>Empleado</label>
-      ${comboHTML('h_asignar_emp', opcionesEmp, '', '', 'Buscar empleado...')}
-    </div></div>
-    <div class="form-actions">
-      <button class="btn" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-add" onclick="confirmarAsignacion('${id}')">Asignar</button>
-    </div>`;
-  document.getElementById('overlay').classList.add('show');
-}
-async function confirmarAsignacion(id){
-  const empId = comboValor('h_asignar_emp');
-  if(!empId){ toast('Elige un empleado de la lista','err'); return; }
-  const h = DB.herramientas.find(x=>x.id===id);
-  h.empleado_id = empId; h.fecha_asignacion = new Date().toISOString().slice(0,10); h.fecha_devolucion=''; h.estado='asignada';
-  closeModal();
-  try{ await saveHerramientas(`Asigna ${h.nombre}`); toast('Guardado en GitHub ✓','ok'); }
-  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  renderHerramientas();
-}
-async function devolverHerramienta(id){
-  const h = DB.herramientas.find(x=>x.id===id);
-  h.fecha_devolucion = new Date().toISOString().slice(0,10); h.estado='disponible'; h.empleado_id='';
-  try{ await saveHerramientas(`Devuelve ${h.nombre}`); toast('Marcada como devuelta ✓','ok'); }
-  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  renderHerramientas();
-}
-async function deleteHerramienta(id){
-  const h = DB.herramientas.find(x=>x.id===id);
-  if(!confirm(`¿Eliminar "${h.nombre}"?`)) return;
-  DB.herramientas = DB.herramientas.filter(x=>x.id!==id);
-  try{ await saveHerramientas(`Elimina ${h.nombre}`); toast('Eliminado ✓','ok'); }
   catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
   renderHerramientas();
 }
@@ -1335,18 +1405,18 @@ function exportarCSV(){
 }
 
 /* ============ CUENTAS ============ */
+const CUENTA_SELECCIONADOS = new Set();
+
 function renderCuentas(){
   const wrap = document.getElementById('cuentasTableWrap');
   const busqueda = (document.getElementById('fCuentaBusqueda')?.value||'').trim().toLowerCase();
   const rows = busqueda ? DB.cuentas.filter(c=>c.nombre.toLowerCase().includes(busqueda)) : DB.cuentas;
-  if(DB.cuentas.length===0){ wrap.innerHTML='<div class="empty-state">Sin cuentas todavía. Crea la primera con "+ Nueva cuenta".</div>'; return; }
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Ninguna cuenta coincide con la búsqueda.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>
+  if(DB.cuentas.length===0){ wrap.innerHTML='<div class="empty-state">Sin cuentas todavía. Crea la primera con "+ Nueva cuenta".</div>'; actualizarBarraCuenta(); return; }
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Ninguna cuenta coincide con la búsqueda.</div>'; actualizarBarraCuenta(); return; }
+  const todosMarcados = rows.length>0 && rows.every(c=>CUENTA_SELECCIONADOS.has(c.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosCuenta(this.checked)"></th><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(c=>`<tr>
-    <td class="col-actions">
-      <button class="btn-icon" title="Actualizar" onclick="openCuentaForm('${c.id}')">✏️</button>
-      <button class="btn btn-sm" onclick="toggleCuentaActiva('${c.id}')">${c.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
-    </td>
+    <td class="col-actions"><input type="checkbox" ${CUENTA_SELECCIONADOS.has(c.id)?'checked':''} onchange="toggleCuentaSeleccion('${c.id}', this.checked)"></td>
     <td><strong>${c.nombre}</strong></td>
     <td class="mono">${c.codigo||'—'}</td>
     <td>${c.contacto_principal||'—'}</td>
@@ -1354,6 +1424,35 @@ function renderCuentas(){
     <td>${c.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
   </tr>`).join('')}
   </tbody></table>`;
+  actualizarBarraCuenta();
+}
+function toggleCuentaSeleccion(id, checked){ checked ? CUENTA_SELECCIONADOS.add(id) : CUENTA_SELECCIONADOS.delete(id); actualizarBarraCuenta(); }
+function toggleTodosCuenta(checked){
+  const busqueda = (document.getElementById('fCuentaBusqueda')?.value||'').trim().toLowerCase();
+  const rows = busqueda ? DB.cuentas.filter(c=>c.nombre.toLowerCase().includes(busqueda)) : DB.cuentas;
+  rows.forEach(c => checked ? CUENTA_SELECCIONADOS.add(c.id) : CUENTA_SELECCIONADOS.delete(c.id));
+  renderCuentas();
+}
+function actualizarBarraCuenta(){
+  const info = document.getElementById('cuentaSeleccionInfo'); if(!info) return;
+  const n = CUENTA_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ninguna cuenta seleccionada' : (n===1 ? '1 cuenta seleccionada' : `${n} cuentas seleccionadas`);
+}
+function accionCuentaSeleccion(accion){
+  const ids = [...CUENTA_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos una cuenta primero','err'); return; }
+  if(accion==='editar'){
+    if(ids.length>1){ toast('Selecciona solo una cuenta para editar','err'); return; }
+    openCuentaForm(ids[0]);
+  } else if(accion==='activar' || accion==='desactivar'){
+    toggleCuentasMultiple(ids, accion==='activar');
+  }
+}
+async function toggleCuentasMultiple(ids, activar){
+  ids.forEach(id=>{ const c = DB.cuentas.find(x=>x.id===id); if(c) c.activa = activar ? 'true' : 'false'; });
+  try{ await saveCuentas(`${activar?'Activa':'Desactiva'} ${ids.length} cuenta(s)`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderCuentas();
 }
 
 function openCuentaForm(id){
@@ -1391,34 +1490,56 @@ async function submitCuentaForm(id){
   populateFilters(); renderCuentas();
 }
 
-async function toggleCuentaActiva(id){
-  const c = DB.cuentas.find(x=>x.id===id);
-  c.activa = (c.activa!=='false') ? 'false' : 'true';
-  try{ await saveCuentas(`${c.activa==='false'?'Desactiva':'Activa'} cuenta ${c.nombre}`); toast('Guardado en GitHub ✓','ok'); }
-  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  populateFilters(); renderCuentas();
-}
-
 /* ============ SALAS DE VENTA ============ */
-function renderSalas(){
+const SALA_SELECCIONADOS = new Set();
+function obtenerSalasFiltradas(){
   const fCuenta = document.getElementById('fSalaCuenta').value;
   let rows = DB.salas.slice();
   if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
   const busqueda = (document.getElementById('fSalaBusqueda')?.value||'').trim().toLowerCase();
   if(busqueda) rows = rows.filter(s=>s.nombre.toLowerCase().includes(busqueda));
+  return rows;
+}
+function renderSalas(){
+  const rows = obtenerSalasFiltradas();
   const wrap = document.getElementById('salasTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin salas de venta que mostrar.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Sala</th><th>Cuenta</th><th>Estado</th></tr></thead><tbody>
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin salas de venta que mostrar.</div>'; actualizarBarraSala(); return; }
+  const todosMarcados = rows.length>0 && rows.every(s=>SALA_SELECCIONADOS.has(s.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosSala(this.checked)"></th><th>Sala</th><th>Cuenta</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
-    <td class="col-actions">
-      <button class="btn-icon" title="Actualizar" onclick="openSalaForm('${s.id}')">✏️</button>
-      <button class="btn btn-sm" onclick="toggleSalaActiva('${s.id}')">${s.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
-    </td>
+    <td class="col-actions"><input type="checkbox" ${SALA_SELECCIONADOS.has(s.id)?'checked':''} onchange="toggleSalaSeleccion('${s.id}', this.checked)"></td>
     <td><strong>${s.nombre}</strong></td>
     <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
     <td>${s.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
   </tr>`).join('')}
   </tbody></table>`;
+  actualizarBarraSala();
+}
+function toggleSalaSeleccion(id, checked){ checked ? SALA_SELECCIONADOS.add(id) : SALA_SELECCIONADOS.delete(id); actualizarBarraSala(); }
+function toggleTodosSala(checked){
+  obtenerSalasFiltradas().forEach(s => checked ? SALA_SELECCIONADOS.add(s.id) : SALA_SELECCIONADOS.delete(s.id));
+  renderSalas();
+}
+function actualizarBarraSala(){
+  const info = document.getElementById('salaSeleccionInfo'); if(!info) return;
+  const n = SALA_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ninguna sala seleccionada' : (n===1 ? '1 sala seleccionada' : `${n} salas seleccionadas`);
+}
+function accionSalaSeleccion(accion){
+  const ids = [...SALA_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos una sala primero','err'); return; }
+  if(accion==='editar'){
+    if(ids.length>1){ toast('Selecciona solo una sala para editar','err'); return; }
+    openSalaForm(ids[0]);
+  } else if(accion==='activar' || accion==='desactivar'){
+    toggleSalasMultiple(ids, accion==='activar');
+  }
+}
+async function toggleSalasMultiple(ids, activar){
+  ids.forEach(id=>{ const s = DB.salas.find(x=>x.id===id); if(s) s.activa = activar ? 'true' : 'false'; });
+  try{ await saveSalas(`${activar?'Activa':'Desactiva'} ${ids.length} sala(s)`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderSalas();
 }
 
 function openSalaForm(id){
@@ -1455,28 +1576,48 @@ async function submitSalaForm(id){
   populateFilters(); renderSalas();
 }
 
-async function toggleSalaActiva(id){
-  const s = DB.salas.find(x=>x.id===id);
-  s.activa = (s.activa!=='false') ? 'false' : 'true';
-  try{ await saveSalas(`${s.activa==='false'?'Desactiva':'Activa'} sala ${s.nombre}`); toast('Guardado en GitHub ✓','ok'); }
-  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  populateFilters(); renderSalas();
-}
-
 /* ============ AFP ============ */
+const AFP_SELECCIONADOS = new Set();
 function renderAfps(){
   const wrap = document.getElementById('afpsTableWrap');
-  if(DB.afps.length===0){ wrap.innerHTML='<div class="empty-state">Sin AFP registradas. Agrega la primera con "+ Nueva AFP".</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Estado</th></tr></thead><tbody>
+  if(DB.afps.length===0){ wrap.innerHTML='<div class="empty-state">Sin AFP registradas. Agrega la primera con "+ Nueva AFP".</div>'; actualizarBarraAfp(); return; }
+  const todosMarcados = DB.afps.every(a=>AFP_SELECCIONADOS.has(a.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosAfp(this.checked)"></th><th>Nombre</th><th>Estado</th></tr></thead><tbody>
   ${DB.afps.map(a=>`<tr>
-    <td class="col-actions">
-      <button class="btn-icon" title="Actualizar" onclick="openAfpForm('${a.id}')">✏️</button>
-      <button class="btn-icon btn-danger" title="Eliminar" onclick="deleteAfp('${a.id}')">🗑️</button>
-    </td>
+    <td class="col-actions"><input type="checkbox" ${AFP_SELECCIONADOS.has(a.id)?'checked':''} onchange="toggleAfpSeleccion('${a.id}', this.checked)"></td>
     <td><strong>${a.nombre}</strong></td>
     <td>${a.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
   </tr>`).join('')}
   </tbody></table>`;
+  actualizarBarraAfp();
+}
+function toggleAfpSeleccion(id, checked){ checked ? AFP_SELECCIONADOS.add(id) : AFP_SELECCIONADOS.delete(id); actualizarBarraAfp(); }
+function toggleTodosAfp(checked){ DB.afps.forEach(a => checked ? AFP_SELECCIONADOS.add(a.id) : AFP_SELECCIONADOS.delete(a.id)); renderAfps(); }
+function actualizarBarraAfp(){
+  const info = document.getElementById('afpSeleccionInfo'); if(!info) return;
+  const n = AFP_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ninguna AFP seleccionada' : (n===1 ? '1 AFP seleccionada' : `${n} AFP seleccionadas`);
+}
+function accionAfpSeleccion(accion){
+  const ids = [...AFP_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos una AFP primero','err'); return; }
+  if(accion==='editar'){
+    if(ids.length>1){ toast('Selecciona solo una AFP para editar','err'); return; }
+    openAfpForm(ids[0]);
+  } else if(accion==='eliminar'){
+    eliminarAfpMultiple(ids);
+  }
+}
+async function eliminarAfpMultiple(ids){
+  const afpsSel = ids.map(id=>DB.afps.find(a=>a.id===id)).filter(Boolean);
+  const enUso = afpsSel.filter(a=>DB.empleados.some(e=>e.afp_id===a.id));
+  if(enUso.length>0){ toast(`No se puede eliminar, hay empleados asignados a: ${enUso.map(a=>a.nombre).join(', ')}`,'err'); return; }
+  if(!confirm(`¿Eliminar ${afpsSel.length>1?afpsSel.length+' AFP':afpsSel[0].nombre}?`)) return;
+  DB.afps = DB.afps.filter(a=>!ids.includes(a.id));
+  ids.forEach(id=>AFP_SELECCIONADOS.delete(id));
+  try{ await saveAfps(`Elimina ${ids.length} AFP`); toast('Eliminada(s) ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderAfps();
 }
 
 function openAfpForm(id){
@@ -1505,19 +1646,9 @@ async function submitAfpForm(id){
   renderAfps();
 }
 
-async function deleteAfp(id){
-  const a = DB.afps.find(x=>x.id===id);
-  const enUso = DB.empleados.some(e=>e.afp_id===id);
-  if(enUso){ toast('No se puede eliminar: hay empleados asignados a esta AFP','err'); return; }
-  if(!confirm(`¿Eliminar "${a.nombre}"?`)) return;
-  DB.afps = DB.afps.filter(x=>x.id!==id);
-  try{ await saveAfps(`Elimina AFP ${a.nombre}`); toast('Eliminada ✓','ok'); }
-  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  renderAfps();
-}
-
 /* ============ INCAPACIDADES ============ */
-function renderIncapacidades(){
+const INCAP_SELECCIONADOS = new Set();
+function obtenerIncapacidadesFiltradas(){
   const fEmp = document.getElementById('fIncapEmp').value;
   let rows = DB.incapacidades.slice().sort((a,b)=>(b.fecha_inicio||'').localeCompare(a.fecha_inicio||''));
   if(fEmp) rows = rows.filter(i=>i.empleado_id===fEmp);
@@ -1528,13 +1659,18 @@ function renderIncapacidades(){
       return emp && `${emp.nombre} ${emp.apellido}`.toLowerCase().includes(busqueda);
     });
   }
+  return rows;
+}
+function renderIncapacidades(){
+  const rows = obtenerIncapacidadesFiltradas();
   const wrap = document.getElementById('incapTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin incapacidades que mostrar.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Empleado</th><th>Fecha inicio</th><th>Días</th><th>Motivo</th></tr></thead><tbody>
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin incapacidades que mostrar.</div>'; actualizarBarraIncap(); return; }
+  const todosMarcados = rows.length>0 && rows.every(i=>INCAP_SELECCIONADOS.has(i.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosIncap(this.checked)"></th><th>Empleado</th><th>Fecha inicio</th><th>Días</th><th>Motivo</th></tr></thead><tbody>
   ${rows.map(i=>{
     const emp = DB.empleados.find(e=>e.id===i.empleado_id);
     return `<tr>
-      <td class="col-actions"><button class="btn-icon btn-danger" title="Eliminar" onclick="deleteIncapacidad('${i.id}')">🗑️</button></td>
+      <td class="col-actions"><input type="checkbox" ${INCAP_SELECCIONADOS.has(i.id)?'checked':''} onchange="toggleIncapSeleccion('${i.id}', this.checked)"></td>
       <td><strong>${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}</strong></td>
       <td class="mono">${i.fecha_inicio||'—'}</td>
       <td class="mono">${i.dias||0}</td>
@@ -1542,6 +1678,30 @@ function renderIncapacidades(){
     </tr>`;
   }).join('')}
   </tbody></table>`;
+  actualizarBarraIncap();
+}
+function toggleIncapSeleccion(id, checked){ checked ? INCAP_SELECCIONADOS.add(id) : INCAP_SELECCIONADOS.delete(id); actualizarBarraIncap(); }
+function toggleTodosIncap(checked){
+  obtenerIncapacidadesFiltradas().forEach(i => checked ? INCAP_SELECCIONADOS.add(i.id) : INCAP_SELECCIONADOS.delete(i.id));
+  renderIncapacidades();
+}
+function actualizarBarraIncap(){
+  const info = document.getElementById('incapSeleccionInfo'); if(!info) return;
+  const n = INCAP_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ninguna incapacidad seleccionada' : (n===1 ? '1 incapacidad seleccionada' : `${n} incapacidades seleccionadas`);
+}
+function accionIncapSeleccion(accion){
+  const ids = [...INCAP_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos una incapacidad primero','err'); return; }
+  if(accion==='eliminar') eliminarIncapacidadesMultiple(ids);
+}
+async function eliminarIncapacidadesMultiple(ids){
+  if(!confirm(`¿Eliminar ${ids.length>1?ids.length+' registros':'este registro'} de incapacidad?`)) return;
+  DB.incapacidades = DB.incapacidades.filter(i=>!ids.includes(i.id));
+  ids.forEach(id=>INCAP_SELECCIONADOS.delete(id));
+  try{ await saveIncapacidades(`Elimina ${ids.length} registro(s) de incapacidad`); toast('Eliminado(s) ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderIncapacidades();
 }
 
 function openIncapForm(){
@@ -1575,33 +1735,58 @@ async function submitIncapForm(){
   renderIncapacidades();
 }
 
-async function deleteIncapacidad(id){
-  if(!confirm('¿Eliminar este registro de incapacidad?')) return;
-  DB.incapacidades = DB.incapacidades.filter(x=>x.id!==id);
-  try{ await saveIncapacidades('Elimina registro de incapacidad'); toast('Eliminado ✓','ok'); }
-  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  renderIncapacidades();
-}
-
 /* ============ SUPERVISORES ============ */
-function renderSupervisores(){
+const SUP_SELECCIONADOS = new Set();
+function obtenerSupervisoresFiltrados(){
   const fCuenta = document.getElementById('fSupCuenta').value;
   let rows = DB.supervisores.slice();
   if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
+  return rows;
+}
+function renderSupervisores(){
+  const rows = obtenerSupervisoresFiltrados();
   const wrap = document.getElementById('supTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin supervisores todavía.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Sala de venta</th><th>Cuenta</th><th>Contacto</th></tr></thead><tbody>
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin supervisores todavía.</div>'; actualizarBarraSup(); return; }
+  const todosMarcados = rows.length>0 && rows.every(s=>SUP_SELECCIONADOS.has(s.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosSup(this.checked)"></th><th>Nombre</th><th>Sala de venta</th><th>Cuenta</th><th>Contacto</th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
-    <td class="col-actions">
-      <button class="btn-icon" title="Actualizar" onclick="openSupForm('${s.id}')">✏️</button>
-      <button class="btn-icon btn-danger" title="Eliminar" onclick="deleteSupervisor('${s.id}')">🗑️</button>
-    </td>
+    <td class="col-actions"><input type="checkbox" ${SUP_SELECCIONADOS.has(s.id)?'checked':''} onchange="toggleSupSeleccion('${s.id}', this.checked)"></td>
     <td><strong>${s.nombre} ${s.apellido}</strong></td>
     <td>${nombreSala(s.sala_id)||'—'}</td>
     <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
     <td class="mono" style="font-size:12px;">${s.telefono||''}<br>${s.correo||''}</td>
   </tr>`).join('')}
   </tbody></table>`;
+  actualizarBarraSup();
+}
+function toggleSupSeleccion(id, checked){ checked ? SUP_SELECCIONADOS.add(id) : SUP_SELECCIONADOS.delete(id); actualizarBarraSup(); }
+function toggleTodosSup(checked){
+  obtenerSupervisoresFiltrados().forEach(s => checked ? SUP_SELECCIONADOS.add(s.id) : SUP_SELECCIONADOS.delete(s.id));
+  renderSupervisores();
+}
+function actualizarBarraSup(){
+  const info = document.getElementById('supSeleccionInfo'); if(!info) return;
+  const n = SUP_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ningún supervisor seleccionado' : (n===1 ? '1 supervisor seleccionado' : `${n} supervisores seleccionados`);
+}
+function accionSupSeleccion(accion){
+  const ids = [...SUP_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos un supervisor primero','err'); return; }
+  if(accion==='editar'){
+    if(ids.length>1){ toast('Selecciona solo un supervisor para editar','err'); return; }
+    openSupForm(ids[0]);
+  } else if(accion==='eliminar'){
+    eliminarSupervisoresMultiple(ids);
+  }
+}
+async function eliminarSupervisoresMultiple(ids){
+  const nombres = ids.map(id=>DB.supervisores.find(s=>s.id===id)).filter(Boolean).map(s=>s.nombre+' '+s.apellido).join(', ');
+  if(!confirm(`¿Eliminar ${ids.length>1?ids.length+' supervisores':nombres}?`)) return;
+  DB.supervisores = DB.supervisores.filter(s=>!ids.includes(s.id));
+  ids.forEach(id=>SUP_SELECCIONADOS.delete(id));
+  try{ await saveSupervisores(`Elimina ${ids.length} supervisor(es)`); toast('Eliminado(s) ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderSupervisores();
 }
 
 function openSupForm(id){
@@ -1640,15 +1825,6 @@ async function submitSupForm(id){
   if(idx>=0) DB.supervisores[idx] = rec; else DB.supervisores.push(rec);
   closeModal();
   try{ await saveSupervisores(idx>=0?`Actualiza supervisor ${rec.nombre}`:`Agrega supervisor ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
-  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  renderSupervisores();
-}
-
-async function deleteSupervisor(id){
-  const s = DB.supervisores.find(x=>x.id===id);
-  if(!confirm(`¿Eliminar a ${s.nombre} ${s.apellido}?`)) return;
-  DB.supervisores = DB.supervisores.filter(x=>x.id!==id);
-  try{ await saveSupervisores(`Elimina supervisor ${s.nombre} ${s.apellido}`); toast('Eliminado ✓','ok'); }
   catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
   renderSupervisores();
 }
@@ -1789,53 +1965,21 @@ const COLUMNAS_INCAPACIDADES = [
 function accionExportar(seccion, tipo){
   let rows, columnas, filename, titulo;
   if(seccion==='empleados'){ rows = obtenerEmpleadosFiltrados(); columnas = COLUMNAS_EMPLEADOS; filename='empleados'; titulo='Empleados'; }
-  else if(seccion==='herramientas'){
-    const fEstado = document.getElementById('fHerrEstado').value;
-    const busqueda = (document.getElementById('fHerrBusqueda')?.value||'').trim().toLowerCase();
-    rows = DB.herramientas.slice();
-    if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
-    if(busqueda){
-      rows = rows.filter(h=>{
-        const emp = DB.empleados.find(e=>e.id===h.empleado_id);
-        const nombreEmp = emp ? `${emp.nombre} ${emp.apellido}`.toLowerCase() : '';
-        return h.nombre.toLowerCase().includes(busqueda) || nombreEmp.includes(busqueda);
-      });
-    }
-    columnas = COLUMNAS_HERRAMIENTAS; filename='herramientas'; titulo='Herramientas';
-  } else if(seccion==='cuentas'){
+  else if(seccion==='herramientas'){ rows = obtenerHerramientasFiltradas(); columnas = COLUMNAS_HERRAMIENTAS; filename='herramientas'; titulo='Herramientas'; }
+  else if(seccion==='cuentas'){
     const busqueda = (document.getElementById('fCuentaBusqueda')?.value||'').trim().toLowerCase();
     rows = busqueda ? DB.cuentas.filter(c=>c.nombre.toLowerCase().includes(busqueda)) : DB.cuentas.slice();
     columnas = COLUMNAS_CUENTAS; filename='cuentas'; titulo='Cuentas';
-  } else if(seccion==='salas'){
-    const fCuenta = document.getElementById('fSalaCuenta').value;
-    const busqueda = (document.getElementById('fSalaBusqueda')?.value||'').trim().toLowerCase();
-    rows = DB.salas.slice();
-    if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
-    if(busqueda) rows = rows.filter(s=>s.nombre.toLowerCase().includes(busqueda));
-    columnas = COLUMNAS_SALAS; filename='salas_de_venta'; titulo='Salas de venta';
-  } else if(seccion==='supervisores'){
-    const fCuenta = document.getElementById('fSupCuenta').value;
-    rows = DB.supervisores.slice(); if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
-    columnas = COLUMNAS_SUPERVISORES; filename='supervisores'; titulo='Supervisores';
-  } else if(seccion==='renuncias'){
+  } else if(seccion==='salas'){ rows = obtenerSalasFiltradas(); columnas = COLUMNAS_SALAS; filename='salas_de_venta'; titulo='Salas de venta'; }
+  else if(seccion==='supervisores'){ rows = obtenerSupervisoresFiltrados(); columnas = COLUMNAS_SUPERVISORES; filename='supervisores'; titulo='Supervisores'; }
+  else if(seccion==='renuncias'){
     const busqueda = (document.getElementById('fRenunciaBusqueda')?.value||'').trim().toLowerCase();
     rows = DB.empleados.filter(e=>e.fecha_baja);
     if(busqueda) rows = rows.filter(e=>`${e.nombre} ${e.apellido}`.toLowerCase().includes(busqueda));
     columnas = COLUMNAS_RENUNCIAS; filename='renuncias'; titulo='Renuncias';
   } else if(seccion==='afps'){ rows = DB.afps.slice(); columnas = COLUMNAS_AFPS; filename='afps'; titulo='AFP'; }
-  else if(seccion==='incapacidades'){
-    const fEmp = document.getElementById('fIncapEmp').value;
-    const busqueda = (document.getElementById('fIncapBusqueda')?.value||'').trim().toLowerCase();
-    rows = DB.incapacidades.slice();
-    if(fEmp) rows = rows.filter(i=>i.empleado_id===fEmp);
-    if(busqueda){
-      rows = rows.filter(i=>{
-        const emp = DB.empleados.find(e=>e.id===i.empleado_id);
-        return emp && `${emp.nombre} ${emp.apellido}`.toLowerCase().includes(busqueda);
-      });
-    }
-    columnas = COLUMNAS_INCAPACIDADES; filename='incapacidades'; titulo='Incapacidades';
-  } else return;
+  else if(seccion==='incapacidades'){ rows = obtenerIncapacidadesFiltradas(); columnas = COLUMNAS_INCAPACIDADES; filename='incapacidades'; titulo='Incapacidades'; }
+  else return;
 
   if(rows.length===0){ toast('No hay filas para exportar con los filtros actuales','err'); return; }
   if(tipo==='copiar') copiarAlPortapapeles(rows, columnas);
