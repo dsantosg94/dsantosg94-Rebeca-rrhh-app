@@ -78,6 +78,10 @@
   .btn-danger{color:var(--red);}
   .btn-danger:hover{background:var(--red-bg);}
   .btn-sm{padding:5px 10px;font-size:12px;}
+  .btn-icon{width:30px;height:30px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:14px;border:1px solid var(--border);background:#fff;border-radius:7px;line-height:1;}
+  .btn-icon:hover{background:#F5F7FA;}
+  .btn-icon.btn-danger{border-color:#F3D4D0;color:var(--red);font-weight:700;}
+  .btn-icon.btn-danger:hover{background:var(--red-bg);}
 
   table{width:max-content;min-width:100%;border-collapse:collapse;font-size:13.5px;}
   th{text-align:left;color:var(--ink-soft);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
@@ -761,8 +765,8 @@ function renderEmpleados(){
   ${rows.map(e=>`
     <tr>
       <td class="col-actions">
-        <button class="btn btn-sm" onclick="openEmpForm('${e.id}')">Editar</button>
-        ${!e.fecha_baja ? `<button class="btn btn-sm btn-danger" onclick="darDeBaja('${e.id}')">Dar de baja</button>` : ''}
+        <button class="btn-icon" title="Actualizar" onclick="openEmpForm('${e.id}')">✏️</button>
+        ${!e.fecha_baja ? `<button class="btn-icon btn-danger" title="Dar de baja" onclick="darDeBaja('${e.id}')">↓</button>` : ''}
       </td>
       <td><strong>${e.nombre} ${e.apellido}</strong></td>
       <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
@@ -930,8 +934,8 @@ function renderHerramientas(){
     const emp = DB.empleados.find(e=>e.id===h.empleado_id);
     return `<tr>
       <td class="col-actions">
-        ${h.estado==='asignada' ? `<button class="btn btn-sm" onclick="devolverHerramienta('${h.id}')">Marcar devuelta</button>` : `<button class="btn btn-sm" onclick="asignarHerramienta('${h.id}')">Asignar</button>`}
-        <button class="btn btn-sm btn-danger" onclick="deleteHerramienta('${h.id}')">Eliminar</button>
+        ${h.estado==='asignada' ? `<button class="btn-icon" title="Marcar devuelta" onclick="devolverHerramienta('${h.id}')">↩️</button>` : `<button class="btn-icon" title="Asignar" onclick="asignarHerramienta('${h.id}')">👤</button>`}
+        <button class="btn-icon btn-danger" title="Eliminar" onclick="deleteHerramienta('${h.id}')">🗑️</button>
       </td>
       <td><strong>${h.nombre}</strong></td>
       <td>${h.tipo||'—'}</td>
@@ -1274,7 +1278,7 @@ function renderCuentas(){
   wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>
   ${DB.cuentas.map(c=>`<tr>
     <td class="col-actions">
-      <button class="btn btn-sm" onclick="openCuentaForm('${c.id}')">Editar</button>
+      <button class="btn-icon" title="Actualizar" onclick="openCuentaForm('${c.id}')">✏️</button>
       <button class="btn btn-sm" onclick="toggleCuentaActiva('${c.id}')">${c.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
     </td>
     <td><strong>${c.nombre}</strong></td>
@@ -1339,7 +1343,7 @@ function renderSalas(){
   wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Sala</th><th>Cuenta</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
     <td class="col-actions">
-      <button class="btn btn-sm" onclick="openSalaForm('${s.id}')">Editar</button>
+      <button class="btn-icon" title="Actualizar" onclick="openSalaForm('${s.id}')">✏️</button>
       <button class="btn btn-sm" onclick="toggleSalaActiva('${s.id}')">${s.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
     </td>
     <td><strong>${s.nombre}</strong></td>
@@ -1398,8 +1402,8 @@ function renderAfps(){
   wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Estado</th></tr></thead><tbody>
   ${DB.afps.map(a=>`<tr>
     <td class="col-actions">
-      <button class="btn btn-sm" onclick="openAfpForm('${a.id}')">Editar</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteAfp('${a.id}')">Eliminar</button>
+      <button class="btn-icon" title="Actualizar" onclick="openAfpForm('${a.id}')">✏️</button>
+      <button class="btn-icon btn-danger" title="Eliminar" onclick="deleteAfp('${a.id}')">🗑️</button>
     </td>
     <td><strong>${a.nombre}</strong></td>
     <td>${a.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
@@ -1455,7 +1459,7 @@ function renderIncapacidades(){
   ${rows.map(i=>{
     const emp = DB.empleados.find(e=>e.id===i.empleado_id);
     return `<tr>
-      <td class="col-actions"><button class="btn btn-sm btn-danger" onclick="deleteIncapacidad('${i.id}')">Eliminar</button></td>
+      <td class="col-actions"><button class="btn-icon btn-danger" title="Eliminar" onclick="deleteIncapacidad('${i.id}')">🗑️</button></td>
       <td><strong>${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}</strong></td>
       <td class="mono">${i.fecha_inicio||'—'}</td>
       <td class="mono">${i.dias||0}</td>
@@ -1514,8 +1518,8 @@ function renderSupervisores(){
   wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Sala de venta</th><th>Cuenta</th><th>Contacto</th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
     <td class="col-actions">
-      <button class="btn btn-sm" onclick="openSupForm('${s.id}')">Editar</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteSupervisor('${s.id}')">Eliminar</button>
+      <button class="btn-icon" title="Actualizar" onclick="openSupForm('${s.id}')">✏️</button>
+      <button class="btn-icon btn-danger" title="Eliminar" onclick="deleteSupervisor('${s.id}')">🗑️</button>
     </td>
     <td><strong>${s.nombre} ${s.apellido}</strong></td>
     <td>${nombreSala(s.sala_id)||'—'}</td>
