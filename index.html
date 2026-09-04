@@ -207,6 +207,7 @@
         <div class="panel">
           <div class="panel-head">
             <div class="toolbar">
+              <input type="text" id="fEmpBusqueda" placeholder="🔎 Buscar nombre..." oninput="renderEmpleados()" style="min-width:180px;">
               <select id="fCuenta" onchange="renderEmpleados()"><option value="">Todas las cuentas</option></select>
               <select id="fSala" onchange="renderEmpleados()"><option value="">Todas las salas</option></select>
               <select id="fEstado" onchange="renderEmpleados()">
@@ -222,6 +223,11 @@
               <button class="btn btn-sm" onclick="accionExportar('empleados','pdf')">PDF</button>
             </div>
           </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionEmpSeleccion('editar')">Editar</button>
+            <button class="btn btn-danger" onclick="accionEmpSeleccion('baja')">Dar de baja</button>
+            <span class="sub" id="empSeleccionInfo">Ningún empleado seleccionado</span>
+          </div>
           <div id="empTableWrap" class="table-scroll"></div>
         </div>
       </div>
@@ -234,7 +240,9 @@
         </div>
         <div class="panel">
           <div class="panel-head">
-            <div></div>
+            <div class="toolbar">
+              <input type="text" id="fCuentaBusqueda" placeholder="🔎 Buscar nombre..." oninput="renderCuentas()" style="min-width:180px;">
+            </div>
             <div class="toolbar">
               <button class="btn btn-sm" onclick="accionExportar('cuentas','copiar')">Copiar</button>
               <button class="btn btn-sm" onclick="accionExportar('cuentas','excel')">Excel</button>
@@ -255,6 +263,7 @@
         <div class="panel">
           <div class="panel-head">
             <div class="toolbar">
+              <input type="text" id="fSalaBusqueda" placeholder="🔎 Buscar nombre..." oninput="renderSalas()" style="min-width:180px;">
               <select id="fSalaCuenta" onchange="renderSalas()"><option value="">Todas las cuentas</option></select>
             </div>
             <div class="toolbar">
@@ -319,6 +328,7 @@
         <div class="panel">
           <div class="panel-head">
             <div class="toolbar">
+              <input type="text" id="fHerrBusqueda" placeholder="🔎 Buscar nombre..." oninput="renderHerramientas()" style="min-width:180px;">
               <select id="fHerrEstado" onchange="renderHerramientas()">
                 <option value="">Todos los estados</option>
                 <option value="asignada">Asignadas</option>
@@ -345,6 +355,7 @@
         <div class="panel">
           <div class="panel-head">
             <div class="toolbar">
+              <input type="text" id="fIncapBusqueda" placeholder="🔎 Buscar empleado..." oninput="renderIncapacidades()" style="min-width:180px;">
               <select id="fIncapEmp" onchange="renderIncapacidades()"><option value="">Todos los empleados</option></select>
             </div>
             <div class="toolbar">
@@ -417,7 +428,9 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
         </div>
         <div class="panel">
           <div class="panel-head">
-            <div></div>
+            <div class="toolbar">
+              <input type="text" id="fRenunciaBusqueda" placeholder="🔎 Buscar empleado..." oninput="renderRenuncias()" style="min-width:180px;">
+            </div>
             <div class="toolbar">
               <button class="btn btn-sm" onclick="accionExportar('renuncias','copiar')">Copiar</button>
               <button class="btn btn-sm" onclick="accionExportar('renuncias','excel')">Excel</button>
@@ -742,6 +755,8 @@ function obtenerEmpleadosFiltrados(){
   if(fSala) rows = rows.filter(e=>e.sala_id===fSala);
   if(fEstado==='1') rows = rows.filter(e=>e.activo==='true');
   if(fEstado==='0') rows = rows.filter(e=>e.activo!=='true');
+  const busqueda = (document.getElementById('fEmpBusqueda')?.value||'').trim().toLowerCase();
+  if(busqueda) rows = rows.filter(e => `${e.nombre} ${e.apellido}`.toLowerCase().includes(busqueda));
   return rows;
 }
 
@@ -755,19 +770,21 @@ function pillVisa(e){
     : `<span class="pill pill-green">Vigente ${e.visa_vencimiento}</span>`;
 }
 
+const EMP_SELECCIONADOS = new Set();
+
 function renderEmpleados(){
   const rows = obtenerEmpleadosFiltrados();
   const wrap = document.getElementById('empTableWrap');
-  if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; return; }
+  // limpia de la selección cualquier id que ya no esté visible por los filtros/búsqueda... no,
+  // mantenemos la selección aunque cambien los filtros, para poder buscar y seguir acumulando.
+  if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; actualizarBarraEmp(); return; }
+  const todosMarcados = rows.length>0 && rows.every(e=>EMP_SELECCIONADOS.has(e.id));
   wrap.innerHTML = `<table><thead><tr>
-    <th class="col-actions"></th><th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Seguro Social</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th>
+    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Seguro Social</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
-      <td class="col-actions">
-        <button class="btn-icon" title="Actualizar" onclick="openEmpForm('${e.id}')">✏️</button>
-        ${!e.fecha_baja ? `<button class="btn-icon btn-danger" title="Dar de baja" onclick="darDeBaja('${e.id}')">↓</button>` : ''}
-      </td>
+      <td class="col-actions"><input type="checkbox" ${EMP_SELECCIONADOS.has(e.id)?'checked':''} onchange="toggleEmpSeleccion('${e.id}', this.checked)"></td>
       <td><strong>${e.nombre} ${e.apellido}</strong></td>
       <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
       <td>${nombreSala(e.sala_id)||'—'}</td>
@@ -780,6 +797,75 @@ function renderEmpleados(){
       <td>${e.fecha_baja ? '<span class="pill pill-red">De baja</span>' : (e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>')}</td>
     </tr>`).join('')}
   </tbody></table>`;
+  actualizarBarraEmp();
+}
+
+function toggleEmpSeleccion(id, checked){
+  if(checked) EMP_SELECCIONADOS.add(id); else EMP_SELECCIONADOS.delete(id);
+  actualizarBarraEmp();
+}
+function toggleTodosEmp(checked){
+  obtenerEmpleadosFiltrados().forEach(e => checked ? EMP_SELECCIONADOS.add(e.id) : EMP_SELECCIONADOS.delete(e.id));
+  renderEmpleados();
+}
+function actualizarBarraEmp(){
+  const info = document.getElementById('empSeleccionInfo');
+  if(!info) return;
+  const n = EMP_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ningún empleado seleccionado' : (n===1 ? '1 empleado seleccionado' : `${n} empleados seleccionados`);
+}
+
+function accionEmpSeleccion(accion){
+  const ids = [...EMP_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos un empleado primero','err'); return; }
+  if(accion==='editar'){
+    if(ids.length>1){ toast('Selecciona solo un empleado para editar','err'); return; }
+    openEmpForm(ids[0]);
+  } else if(accion==='baja'){
+    darDeBajaMultiple(ids);
+  }
+}
+
+async function darDeBajaMultiple(ids){
+  const empleadosSel = ids.map(id=>DB.empleados.find(e=>e.id===id)).filter(Boolean);
+  const yaDeBaja = empleadosSel.filter(e=>e.fecha_baja);
+  if(yaDeBaja.length>0){ toast(`${yaDeBaja.map(e=>e.nombre+' '+e.apellido).join(', ')} ya está(n) de baja`,'err'); return; }
+  const bloqueados = [];
+  empleadosSel.forEach(e=>{
+    const pendientes = DB.herramientas.filter(h=>h.empleado_id===e.id && h.estado==='asignada');
+    if(pendientes.length>0) bloqueados.push(`${e.nombre} ${e.apellido} (${pendientes.map(h=>h.nombre).join(', ')})`);
+  });
+  if(bloqueados.length>0){
+    toast(`No se puede dar de baja, deben devolver herramientas primero: ${bloqueados.join(' · ')}`,'err');
+    return;
+  }
+  const nombres = empleadosSel.map(e=>e.nombre+' '+e.apellido).join(', ');
+  document.getElementById('modalBody').innerHTML = `
+    <h3>Dar de baja a ${empleadosSel.length>1 ? empleadosSel.length+' empleados' : nombres}</h3>
+    ${empleadosSel.length>1 ? `<div class="sub" style="margin-bottom:12px;">${nombres}</div>` : ''}
+    <div class="form-grid">
+      <div class="full"><label>Fecha de baja</label><input id="b_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="full"><label>Motivo (opcional)</label><input id="b_motivo" placeholder="Renuncia, fin de contrato..."></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" style="border:1px solid var(--red);" onclick="confirmarBajaMultiple(${JSON.stringify(ids)})">Confirmar baja</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function confirmarBajaMultiple(ids){
+  const fecha = val('b_fecha') || new Date().toISOString().slice(0,10);
+  const motivo = val('b_motivo');
+  ids.forEach(id=>{
+    const e = DB.empleados.find(x=>x.id===id);
+    if(e){ e.activo='false'; e.fecha_baja=fecha; e.motivo_baja=motivo; }
+  });
+  closeModal();
+  try{ await saveEmpleados(`Da de baja a ${ids.length} empleado(s)`); toast('Empleado(s) dado(s) de baja ✓','ok'); }
+  catch(err){ toast('No se pudo guardar: '+err.message,'err'); }
+  ids.forEach(id=>EMP_SELECCIONADOS.delete(id));
+  renderEmpleados(); renderRenuncias();
 }
 
 function actualizarSalasPorCuenta(cuentaId, mantenerSeleccion){
@@ -891,42 +977,19 @@ async function submitEmpForm(id){
   populateFilters(); renderEmpleados();
 }
 
-async function darDeBaja(id){
-  const e = DB.empleados.find(x=>x.id===id);
-  const pendientes = DB.herramientas.filter(h=>h.empleado_id===id && h.estado==='asignada');
-  if(pendientes.length>0){
-    toast(`No se puede dar de baja: debe devolver primero: ${pendientes.map(h=>h.nombre).join(', ')}`, 'err');
-    return;
-  }
-  document.getElementById('modalBody').innerHTML = `
-    <h3>Dar de baja a ${e.nombre} ${e.apellido}</h3>
-    <div class="form-grid">
-      <div class="full"><label>Fecha de baja</label><input id="b_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
-      <div class="full"><label>Motivo (opcional)</label><input id="b_motivo" placeholder="Renuncia, fin de contrato..."></div>
-    </div>
-    <div class="form-actions">
-      <button class="btn" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-danger" style="border:1px solid var(--red);" onclick="confirmarBaja('${id}')">Confirmar baja</button>
-    </div>`;
-  document.getElementById('overlay').classList.add('show');
-}
-
-async function confirmarBaja(id){
-  const e = DB.empleados.find(x=>x.id===id);
-  e.activo = 'false';
-  e.fecha_baja = val('b_fecha') || new Date().toISOString().slice(0,10);
-  e.motivo_baja = val('b_motivo');
-  closeModal();
-  try{ await saveEmpleados(`Da de baja a ${e.nombre} ${e.apellido}`); toast('Empleado dado de baja ✓','ok'); }
-  catch(err){ toast('No se pudo guardar: '+err.message,'err'); }
-  renderEmpleados(); renderRenuncias();
-}
-
 /* ============ HERRAMIENTAS ============ */
 function renderHerramientas(){
   const fEstado = document.getElementById('fHerrEstado').value;
   let rows = DB.herramientas.slice();
   if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
+  const busqueda = (document.getElementById('fHerrBusqueda')?.value||'').trim().toLowerCase();
+  if(busqueda){
+    rows = rows.filter(h=>{
+      const emp = DB.empleados.find(e=>e.id===h.empleado_id);
+      const nombreEmp = emp ? `${emp.nombre} ${emp.apellido}`.toLowerCase() : '';
+      return h.nombre.toLowerCase().includes(busqueda) || nombreEmp.includes(busqueda);
+    });
+  }
   const wrap = document.getElementById('herrTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">No hay herramientas registradas.</div>'; return; }
   wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Herramienta</th><th>Tipo</th><th>Asignada a</th><th>Desde</th><th>Estado</th></tr></thead><tbody>
@@ -1274,9 +1337,12 @@ function exportarCSV(){
 /* ============ CUENTAS ============ */
 function renderCuentas(){
   const wrap = document.getElementById('cuentasTableWrap');
+  const busqueda = (document.getElementById('fCuentaBusqueda')?.value||'').trim().toLowerCase();
+  const rows = busqueda ? DB.cuentas.filter(c=>c.nombre.toLowerCase().includes(busqueda)) : DB.cuentas;
   if(DB.cuentas.length===0){ wrap.innerHTML='<div class="empty-state">Sin cuentas todavía. Crea la primera con "+ Nueva cuenta".</div>'; return; }
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Ninguna cuenta coincide con la búsqueda.</div>'; return; }
   wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>
-  ${DB.cuentas.map(c=>`<tr>
+  ${rows.map(c=>`<tr>
     <td class="col-actions">
       <button class="btn-icon" title="Actualizar" onclick="openCuentaForm('${c.id}')">✏️</button>
       <button class="btn btn-sm" onclick="toggleCuentaActiva('${c.id}')">${c.activa!=='false' ? 'Desactivar' : 'Activar'}</button>
@@ -1338,8 +1404,10 @@ function renderSalas(){
   const fCuenta = document.getElementById('fSalaCuenta').value;
   let rows = DB.salas.slice();
   if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
+  const busqueda = (document.getElementById('fSalaBusqueda')?.value||'').trim().toLowerCase();
+  if(busqueda) rows = rows.filter(s=>s.nombre.toLowerCase().includes(busqueda));
   const wrap = document.getElementById('salasTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin salas de venta todavía. Crea la primera con "+ Nueva sala".</div>'; return; }
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin salas de venta que mostrar.</div>'; return; }
   wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Sala</th><th>Cuenta</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
     <td class="col-actions">
@@ -1453,8 +1521,15 @@ function renderIncapacidades(){
   const fEmp = document.getElementById('fIncapEmp').value;
   let rows = DB.incapacidades.slice().sort((a,b)=>(b.fecha_inicio||'').localeCompare(a.fecha_inicio||''));
   if(fEmp) rows = rows.filter(i=>i.empleado_id===fEmp);
+  const busqueda = (document.getElementById('fIncapBusqueda')?.value||'').trim().toLowerCase();
+  if(busqueda){
+    rows = rows.filter(i=>{
+      const emp = DB.empleados.find(e=>e.id===i.empleado_id);
+      return emp && `${emp.nombre} ${emp.apellido}`.toLowerCase().includes(busqueda);
+    });
+  }
   const wrap = document.getElementById('incapTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin incapacidades registradas.</div>'; return; }
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin incapacidades que mostrar.</div>'; return; }
   wrap.innerHTML = `<table><thead><tr><th class="col-actions"></th><th>Empleado</th><th>Fecha inicio</th><th>Días</th><th>Motivo</th></tr></thead><tbody>
   ${rows.map(i=>{
     const emp = DB.empleados.find(e=>e.id===i.empleado_id);
@@ -1580,9 +1655,11 @@ async function deleteSupervisor(id){
 
 /* ============ RENUNCIAS ============ */
 function renderRenuncias(){
-  const rows = DB.empleados.filter(e=>e.fecha_baja).sort((a,b)=>(b.fecha_baja||'').localeCompare(a.fecha_baja||''));
+  let rows = DB.empleados.filter(e=>e.fecha_baja).sort((a,b)=>(b.fecha_baja||'').localeCompare(a.fecha_baja||''));
+  const busqueda = (document.getElementById('fRenunciaBusqueda')?.value||'').trim().toLowerCase();
+  if(busqueda) rows = rows.filter(e=>`${e.nombre} ${e.apellido}`.toLowerCase().includes(busqueda));
   const wrap = document.getElementById('renunciasTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Todavía no hay bajas registradas.</div>'; return; }
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin bajas que mostrar.</div>'; return; }
   wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Cuenta</th><th>Fecha de baja</th><th>Motivo</th></tr></thead><tbody>
   ${rows.map(e=>`<tr>
     <td><strong>${e.nombre} ${e.apellido}</strong></td>
@@ -1714,23 +1791,49 @@ function accionExportar(seccion, tipo){
   if(seccion==='empleados'){ rows = obtenerEmpleadosFiltrados(); columnas = COLUMNAS_EMPLEADOS; filename='empleados'; titulo='Empleados'; }
   else if(seccion==='herramientas'){
     const fEstado = document.getElementById('fHerrEstado').value;
-    rows = DB.herramientas.slice(); if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
+    const busqueda = (document.getElementById('fHerrBusqueda')?.value||'').trim().toLowerCase();
+    rows = DB.herramientas.slice();
+    if(fEstado) rows = rows.filter(h=>h.estado===fEstado);
+    if(busqueda){
+      rows = rows.filter(h=>{
+        const emp = DB.empleados.find(e=>e.id===h.empleado_id);
+        const nombreEmp = emp ? `${emp.nombre} ${emp.apellido}`.toLowerCase() : '';
+        return h.nombre.toLowerCase().includes(busqueda) || nombreEmp.includes(busqueda);
+      });
+    }
     columnas = COLUMNAS_HERRAMIENTAS; filename='herramientas'; titulo='Herramientas';
-  } else if(seccion==='cuentas'){ rows = DB.cuentas.slice(); columnas = COLUMNAS_CUENTAS; filename='cuentas'; titulo='Cuentas'; }
-  else if(seccion==='salas'){
+  } else if(seccion==='cuentas'){
+    const busqueda = (document.getElementById('fCuentaBusqueda')?.value||'').trim().toLowerCase();
+    rows = busqueda ? DB.cuentas.filter(c=>c.nombre.toLowerCase().includes(busqueda)) : DB.cuentas.slice();
+    columnas = COLUMNAS_CUENTAS; filename='cuentas'; titulo='Cuentas';
+  } else if(seccion==='salas'){
     const fCuenta = document.getElementById('fSalaCuenta').value;
-    rows = DB.salas.slice(); if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
+    const busqueda = (document.getElementById('fSalaBusqueda')?.value||'').trim().toLowerCase();
+    rows = DB.salas.slice();
+    if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
+    if(busqueda) rows = rows.filter(s=>s.nombre.toLowerCase().includes(busqueda));
     columnas = COLUMNAS_SALAS; filename='salas_de_venta'; titulo='Salas de venta';
   } else if(seccion==='supervisores'){
     const fCuenta = document.getElementById('fSupCuenta').value;
     rows = DB.supervisores.slice(); if(fCuenta) rows = rows.filter(s=>s.cuenta_id===fCuenta);
     columnas = COLUMNAS_SUPERVISORES; filename='supervisores'; titulo='Supervisores';
   } else if(seccion==='renuncias'){
-    rows = DB.empleados.filter(e=>e.fecha_baja); columnas = COLUMNAS_RENUNCIAS; filename='renuncias'; titulo='Renuncias';
+    const busqueda = (document.getElementById('fRenunciaBusqueda')?.value||'').trim().toLowerCase();
+    rows = DB.empleados.filter(e=>e.fecha_baja);
+    if(busqueda) rows = rows.filter(e=>`${e.nombre} ${e.apellido}`.toLowerCase().includes(busqueda));
+    columnas = COLUMNAS_RENUNCIAS; filename='renuncias'; titulo='Renuncias';
   } else if(seccion==='afps'){ rows = DB.afps.slice(); columnas = COLUMNAS_AFPS; filename='afps'; titulo='AFP'; }
   else if(seccion==='incapacidades'){
     const fEmp = document.getElementById('fIncapEmp').value;
-    rows = DB.incapacidades.slice(); if(fEmp) rows = rows.filter(i=>i.empleado_id===fEmp);
+    const busqueda = (document.getElementById('fIncapBusqueda')?.value||'').trim().toLowerCase();
+    rows = DB.incapacidades.slice();
+    if(fEmp) rows = rows.filter(i=>i.empleado_id===fEmp);
+    if(busqueda){
+      rows = rows.filter(i=>{
+        const emp = DB.empleados.find(e=>e.id===i.empleado_id);
+        return emp && `${emp.nombre} ${emp.apellido}`.toLowerCase().includes(busqueda);
+      });
+    }
     columnas = COLUMNAS_INCAPACIDADES; filename='incapacidades'; titulo='Incapacidades';
   } else return;
 
