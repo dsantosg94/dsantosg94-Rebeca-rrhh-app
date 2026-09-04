@@ -570,13 +570,37 @@ async function ghGetFileOpcional(path){
 
 async function ghPutFile(path, text, sha, message){
   const url = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`;
-  const body = { message: message || `Actualiza ${path}`, content: b64encode(text), branch: BRANCH };
-  if(sha) body.sha = sha;
-  const res = await fetch(url, { method:'PUT', headers: {...ghHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const doPut = async (shaAUsar) => {
+    const body = { message: message || `Actualiza ${path}`, content: b64encode(text), branch: BRANCH };
+    if(shaAUsar) body.sha = shaAUsar;
+    return fetch(url, { method:'PUT', headers: {...ghHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  };
+
+  let res = await doPut(sha);
+
   if(!res.ok){
     const errBody = await res.json().catch(()=>({}));
-    throw new Error(errBody.message || `Error guardando ${path} (HTTP ${res.status})`);
+    const mensaje = errBody.message || '';
+    const esConflictoDeSha = res.status===409 || res.status===422 || /does not match|sha/i.test(mensaje);
+
+    if(esConflictoDeSha){
+      // Nuestra copia del sha quedó vieja (otra pestaña, u otro guardado anterior). Releemos el
+      // archivo tal cual está ahora en GitHub y reintentamos el guardado una sola vez con el sha correcto.
+      try{
+        const actual = await ghGetFile(path);
+        res = await doPut(actual.sha);
+      }catch(e){
+        throw new Error('No se pudo guardar por un conflicto de versión, y tampoco se pudo releer el archivo. Recarga la página e inténtalo de nuevo. Detalle: '+e.message);
+      }
+      if(!res.ok){
+        const errBody2 = await res.json().catch(()=>({}));
+        throw new Error((errBody2.message || `Error guardando ${path} (HTTP ${res.status})`) + ' — recarga la página e inténtalo de nuevo.');
+      }
+    } else {
+      throw new Error(mensaje || `Error guardando ${path} (HTTP ${res.status})`);
+    }
   }
+
   const data = await res.json();
   return data.content.sha;
 }
@@ -1000,7 +1024,15 @@ async function submitEmpForm(id){
     activo: document.getElementById('m_activo').checked ? 'true' : 'false'
   };
   const existente = DB.empleados.find(x=>x.id===id);
-  if(existente){ rec.fecha_baja = existente.fecha_baja||''; rec.motivo_baja = existente.motivo_baja||''; rec.es_supervisor = existente.es_supervisor||'false'; }
+  if(existente){
+    if(rec.activo==='true'){
+      // Se está reactivando: si tenía una baja registrada, se limpia para que ya no aparezca "De baja"
+      rec.fecha_baja=''; rec.motivo_baja='';
+    } else {
+      rec.fecha_baja = existente.fecha_baja||''; rec.motivo_baja = existente.motivo_baja||'';
+    }
+    rec.es_supervisor = existente.es_supervisor||'false';
+  }
   else{ rec.fecha_baja=''; rec.motivo_baja=''; }
   if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
   const idx = DB.empleados.findIndex(x=>x.id===id);
@@ -1008,7 +1040,7 @@ async function submitEmpForm(id){
   closeModal();
   try{ await saveEmpleados(idx>=0?`Actualiza empleado ${rec.nombre} ${rec.apellido}`:`Agrega empleado ${rec.nombre} ${rec.apellido}`); toast('Guardado en GitHub ✓','ok'); }
   catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  populateFilters(); renderEmpleados();
+  populateFilters(); renderEmpleados(); renderRenuncias();
 }
 
 /* ============ HERRAMIENTAS ============ */
