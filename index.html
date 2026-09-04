@@ -178,8 +178,10 @@
       <div class="nav-item" data-tab="cuentas" onclick="switchTab('cuentas')">🏢 Cuentas</div>
       <div class="nav-item nav-sub" data-tab="salas" onclick="switchTab('salas')">↳ Salas de venta</div>
       <div class="nav-item" data-tab="supervisores" onclick="switchTab('supervisores')">🧑‍💼 Supervisores</div>
+      <div class="nav-item" data-tab="afps" onclick="switchTab('afps')">🏦 AFP</div>
       <div class="nav-item" data-tab="herramientas" onclick="switchTab('herramientas')">🧰 Herramientas</div>
       <div class="nav-item" data-tab="asistencia" onclick="switchTab('asistencia')">🎟️ Asistencia</div>
+      <div class="nav-item" data-tab="incapacidades" onclick="switchTab('incapacidades')">🩹 Incapacidades</div>
       <div class="nav-item" data-tab="planilla" onclick="switchTab('planilla')">💵 Planilla</div>
       <div class="nav-item" data-tab="renuncias" onclick="switchTab('renuncias')">🚪 Renuncias</div>
       <div class="sidebar-foot">dsantosg94/Rebeca-rrhh<br>rama main<br><a href="#" onclick="olvidarToken();return false;" style="color:#C6D0E2;">Olvidar token guardado</a></div>
@@ -279,6 +281,26 @@
         </div>
       </div>
 
+      <!-- AFP -->
+      <div class="tab-section" id="tab-afps">
+        <div class="topbar">
+          <div><h2>AFP</h2><div class="sub">Administradoras de fondos de pensiones disponibles para asignar a empleados</div></div>
+          <button class="btn btn-add" onclick="openAfpForm()">+ Nueva AFP</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div></div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('afps','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('afps','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('afps','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('afps','pdf')">PDF</button>
+            </div>
+          </div>
+          <div id="afpsTableWrap"></div>
+        </div>
+      </div>
+
       <!-- HERRAMIENTAS -->
       <div class="tab-section" id="tab-herramientas">
         <div class="topbar">
@@ -302,6 +324,28 @@
             </div>
           </div>
           <div id="herrTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- INCAPACIDADES -->
+      <div class="tab-section" id="tab-incapacidades">
+        <div class="topbar">
+          <div><h2>Incapacidades</h2><div class="sub">Registro de incapacidades del personal. Todavía no afecta el cálculo de planilla</div></div>
+          <button class="btn btn-add" onclick="openIncapForm()">+ Nueva incapacidad</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="toolbar">
+              <select id="fIncapEmp" onchange="renderIncapacidades()"><option value="">Todos los empleados</option></select>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('incapacidades','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('incapacidades','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('incapacidades','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('incapacidades','pdf')">PDF</button>
+            </div>
+          </div>
+          <div id="incapTableWrap"></div>
         </div>
       </div>
 
@@ -392,18 +436,20 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
 const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
-const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado'];
+const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv' };
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado','seguro_social','afp_id','tiene_visa','visa_vencimiento'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
 const SUP_H = ['id','nombre','apellido','telefono','correo','sala_id','cuenta_id'];
 const SALA_H = ['id','nombre','cuenta_id','activa'];
+const AFP_H = ['id','nombre','activa'];
+const INCAP_H = ['id','empleado_id','fecha_inicio','dias','motivo'];
 
 const TOKEN_KEY = 'rebeca_gh_token';
 let TOKEN = '';
-let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[] };
-let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null };
+let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[] };
+let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null };
 
 function storageAvailable(){
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; }
@@ -495,9 +541,10 @@ async function connect(silent){
   if(!t){ if(!silent){ errEl.textContent='Pega tu token primero.'; errEl.style.display='block'; } return; }
   TOKEN = t;
   try{
-    const [emp, herr, asis, cta, sup, sal] = await Promise.all([
+    const [emp, herr, asis, cta, sup, sal, afp, inc] = await Promise.all([
       ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia),
-      ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores), ghGetFileOpcional(FILES.salas)
+      ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores), ghGetFileOpcional(FILES.salas),
+      ghGetFileOpcional(FILES.afps), ghGetFileOpcional(FILES.incapacidades)
     ]);
     DB.empleados = parseCSV(emp.text); SHA.empleados = emp.sha;
     DB.herramientas = parseCSV(herr.text); SHA.herramientas = herr.sha;
@@ -505,6 +552,8 @@ async function connect(silent){
     DB.cuentas = parseCSV(cta.text); SHA.cuentas = cta.sha;
     DB.supervisores = parseCSV(sup.text); SHA.supervisores = sup.sha;
     DB.salas = parseCSV(sal.text); SHA.salas = sal.sha;
+    DB.afps = parseCSV(afp.text); SHA.afps = afp.sha;
+    DB.incapacidades = parseCSV(inc.text); SHA.incapacidades = inc.sha;
 
     const remember = document.getElementById('rememberToken').checked;
     if(remember && storageAvailable()){
@@ -514,7 +563,7 @@ async function connect(silent){
     document.getElementById('gate').style.display='none';
     document.getElementById('app').style.display='block';
     populateFilters();
-    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas();
+    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas(); renderAfps(); renderIncapacidades();
     try{
       const savedUrl = localStorage.getItem(GFORM_URL_KEY);
       if(savedUrl) document.getElementById('gformUrl').value = savedUrl;
@@ -548,6 +597,12 @@ async function saveSupervisores(msg){
 }
 async function saveSalas(msg){
   SHA.salas = await ghPutFile(FILES.salas, toCSV(SALA_H, DB.salas), SHA.salas, msg);
+}
+async function saveAfps(msg){
+  SHA.afps = await ghPutFile(FILES.afps, toCSV(AFP_H, DB.afps), SHA.afps, msg);
+}
+async function saveIncapacidades(msg){
+  SHA.incapacidades = await ghPutFile(FILES.incapacidades, toCSV(INCAP_H, DB.incapacidades), SHA.incapacidades, msg);
 }
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -601,12 +656,16 @@ function refreshEmpleadoSelects(){
   const opts = activos.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('');
   const asisSel = document.getElementById('fAsisEmp');
   if(asisSel) asisSel.innerHTML = '<option value="">Todos los empleados</option>' + opts;
+  const incapSel = document.getElementById('fIncapEmp');
+  if(incapSel) incapSel.innerHTML = '<option value="">Todos los empleados</option>' + opts;
 }
 
 /* ============ Combo con buscador (reemplaza selects largos) ============ */
 const COMBO_DATA = {};
-function comboHTML(idPrefix, opciones, valorSeleccionado, labelSeleccionado, placeholder){
+const COMBO_ONCHANGE = {};
+function comboHTML(idPrefix, opciones, valorSeleccionado, labelSeleccionado, placeholder, onChangeFn){
   COMBO_DATA[idPrefix] = opciones; // [{id,label}]
+  if(onChangeFn) COMBO_ONCHANGE[idPrefix] = onChangeFn;
   return `<div class="combo" id="${idPrefix}_wrap">
     <input type="text" id="${idPrefix}_search" class="combo-input" autocomplete="off" placeholder="${placeholder||'Buscar...'}"
       value="${labelSeleccionado||''}"
@@ -639,6 +698,9 @@ function comboSeleccionar(idPrefix, id, label){
   document.getElementById(idPrefix+'_search').value = label;
   document.getElementById(idPrefix+'_value').value = id;
   document.getElementById(idPrefix+'_list').style.display='none';
+  if(COMBO_ONCHANGE[idPrefix] && typeof window[COMBO_ONCHANGE[idPrefix]]==='function'){
+    window[COMBO_ONCHANGE[idPrefix]](id);
+  }
 }
 function comboValor(idPrefix){
   const el = document.getElementById(idPrefix+'_value');
@@ -664,12 +726,22 @@ function obtenerEmpleadosFiltrados(){
   return rows;
 }
 
+function pillVisa(e){
+  if(e.tiene_visa!=='true') return '—';
+  if(!e.visa_vencimiento) return '<span class="pill pill-amber">Sin fecha</span>';
+  const hoy = new Date().toISOString().slice(0,10);
+  const vencida = e.visa_vencimiento < hoy;
+  return vencida
+    ? `<span class="pill pill-red">Vencida ${e.visa_vencimiento}</span>`
+    : `<span class="pill pill-green">Vigente ${e.visa_vencimiento}</span>`;
+}
+
 function renderEmpleados(){
   const rows = obtenerEmpleadosFiltrados();
   const wrap = document.getElementById('empTableWrap');
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; return; }
   wrap.innerHTML = `<table><thead><tr>
-    <th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th><th></th>
+    <th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th><th></th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
@@ -680,6 +752,7 @@ function renderEmpleados(){
       <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
       <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
+      <td>${pillVisa(e)}</td>
       <td>${e.fecha_baja ? '<span class="pill pill-red">De baja</span>' : (e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>')}</td>
       <td>
         <button class="btn btn-sm" onclick="openEmpForm('${e.id}')">Editar</button>
@@ -689,12 +762,33 @@ function renderEmpleados(){
   </tbody></table>`;
 }
 
+function actualizarSalasPorCuenta(cuentaId, mantenerSeleccion){
+  const salas = DB.salas.filter(s=>s.cuenta_id===cuentaId && s.activa!=='false');
+  COMBO_DATA['m_sala'] = salas.map(s=>({ id:s.id, label:s.nombre }));
+  if(!mantenerSeleccion){
+    const searchEl = document.getElementById('m_sala_search');
+    const valueEl = document.getElementById('m_sala_value');
+    if(searchEl){ searchEl.value=''; valueEl.value=''; }
+  }
+  const searchEl = document.getElementById('m_sala_search');
+  if(searchEl) searchEl.placeholder = salas.length===0 ? 'Esta cuenta no tiene salas todavía' : 'Buscar sala...';
+}
+
 function openEmpForm(id){
   const e = id ? DB.empleados.find(x=>x.id===id) : null;
-  const salasActivas = DB.salas.filter(s=>s.activa!=='false');
-  const opcionesSala = salasActivas.map(s=>({ id:s.id, label: `${s.nombre} (${nombreCuenta(s.cuenta_id)})` }));
-  const salaSel = e?.sala_id ? salasActivas.find(s=>s.id===e.sala_id) : null;
-  const labelSalaSel = salaSel ? `${salaSel.nombre} (${nombreCuenta(salaSel.cuenta_id)})` : '';
+  const cuentasActivas = DB.cuentas.filter(c=>c.activa!=='false');
+  const opcionesCuenta = cuentasActivas.map(c=>({ id:c.id, label:c.nombre }));
+  const cuentaSel = e?.cuenta_id ? cuentasActivas.find(c=>c.id===e.cuenta_id) : null;
+
+  const salaSel = e?.sala_id ? DB.salas.find(s=>s.id===e.sala_id) : null;
+  const opcionesSalaInicial = e?.cuenta_id
+    ? DB.salas.filter(s=>s.cuenta_id===e.cuenta_id && s.activa!=='false').map(s=>({ id:s.id, label:s.nombre }))
+    : [];
+
+  const afpsActivas = DB.afps.filter(a=>a.activa!=='false');
+  const opcionesAfp = afpsActivas.map(a=>({ id:a.id, label:a.nombre }));
+  const afpSel = e?.afp_id ? afpsActivas.find(a=>a.id===e.afp_id) : null;
+
   document.getElementById('modalBody').innerHTML = `
     <h3>${e?'Editar empleado':'Nuevo empleado'}</h3>
     <div class="form-grid">
@@ -705,9 +799,11 @@ function openEmpForm(id){
       <div><label>Correo</label><input id="m_correo" value="${e?.correo||''}"></div>
       <div><label>Edad</label><input id="m_edad" type="number" value="${e?.edad||''}"></div>
       <div><label>Fecha de nacimiento</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
-      <div class="full"><label>Sala de venta asignada</label>
-        ${comboHTML('m_sala', opcionesSala, e?.sala_id||'', labelSalaSel, 'Buscar sala...')}
-        ${salasActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes salas creadas — ve a "Cuentas → Salas de venta" y crea la primera.</div>' : ''}
+      <div class="full"><label>Cuenta (opcional)</label>
+        ${comboHTML('m_cuenta', opcionesCuenta, e?.cuenta_id||'', cuentaSel?.nombre||'', 'Buscar cuenta...', 'actualizarSalasPorCuenta')}
+      </div>
+      <div class="full"><label>Sala de venta</label>
+        ${comboHTML('m_sala', opcionesSalaInicial, e?.sala_id||'', salaSel?.nombre||'', e?.cuenta_id ? 'Buscar sala...' : 'Elige primero una cuenta')}
       </div>
       <div>
         <label>Tipo de pago</label>
@@ -717,8 +813,19 @@ function openEmpForm(id){
         </select>
       </div>
       <div><label id="m_tarifaLabel">${e?.tipo_pago==='fijo'?'Salario por día':'Tarifa por hora'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
+      <div><label>Número de Seguro Social</label><input id="m_seguro_social" value="${e?.seguro_social||''}"></div>
+      <div class="full"><label>AFP</label>
+        ${comboHTML('m_afp', opcionesAfp, e?.afp_id||'', afpSel?.nombre||'', 'Buscar AFP...')}
+        ${afpsActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes AFP creadas — ve a la pestaña "AFP" y agrega la primera.</div>' : ''}
+      </div>
       <div><label>Carné de SRS (manipulación de alimentos)</label><input id="m_carne_srs" value="${e?.carne_srs||''}" placeholder="Número o dejar vacío"></div>
       <div><label>Carné de empleado</label><input id="m_carne_empleado" value="${e?.carne_empleado||''}" placeholder="Aún no emitido si está vacío"></div>
+      <div class="full" style="margin-top:6px;">
+        <label class="check-row"><input type="checkbox" id="m_tiene_visa" ${e?.tiene_visa==='true'?'checked':''} onchange="document.getElementById('m_visa_fecha_wrap').style.display=this.checked?'block':'none'"> Tiene visa</label>
+      </div>
+      <div class="full" id="m_visa_fecha_wrap" style="display:${e?.tiene_visa==='true'?'block':'none'};">
+        <label>Fecha de vencimiento de la visa</label><input id="m_visa_vencimiento" type="date" value="${e?.visa_vencimiento||''}">
+      </div>
       <div class="full" style="margin-top:6px;">
         <label class="check-row"><input type="checkbox" id="m_activo" ${e && e.activo==='false' ? '' : 'checked'}> Activo</label>
       </div>
@@ -731,20 +838,25 @@ function openEmpForm(id){
 }
 
 async function submitEmpForm(id){
+  const cuentaId = comboValor('m_cuenta');
   const salaId = comboValor('m_sala');
   const sala = DB.salas.find(s=>s.id===salaId);
-  const cuentaId = sala ? sala.cuenta_id : '';
+  // Si la sala elegida no pertenece a la cuenta elegida (o ya no hay cuenta), no la guardamos suelta
+  const salaValida = sala && sala.cuenta_id===cuentaId ? salaId : '';
   const rec = {
     id: id || uid(),
     nombre: val('m_nombre'), apellido: val('m_apellido'), direccion: val('m_direccion'),
     telefono: val('m_telefono'), correo: val('m_correo'), edad: val('m_edad'),
     fecha_nacimiento: val('m_fnac'),
-    sala_id: salaId,
+    sala_id: salaValida,
     cuenta_id: cuentaId,
     empresa_cliente: nombreCuenta(cuentaId),
     es_supervisor: 'false',
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
+    seguro_social: val('m_seguro_social'), afp_id: comboValor('m_afp'),
     carne_srs: val('m_carne_srs'), carne_empleado: val('m_carne_empleado'),
+    tiene_visa: document.getElementById('m_tiene_visa').checked ? 'true' : 'false',
+    visa_vencimiento: document.getElementById('m_tiene_visa').checked ? val('m_visa_vencimiento') : '',
     activo: document.getElementById('m_activo').checked ? 'true' : 'false'
   };
   const existente = DB.empleados.find(x=>x.id===id);
@@ -1263,6 +1375,119 @@ async function toggleSalaActiva(id){
   populateFilters(); renderSalas();
 }
 
+/* ============ AFP ============ */
+function renderAfps(){
+  const wrap = document.getElementById('afpsTableWrap');
+  if(DB.afps.length===0){ wrap.innerHTML='<div class="empty-state">Sin AFP registradas. Agrega la primera con "+ Nueva AFP".</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${DB.afps.map(a=>`<tr>
+    <td><strong>${a.nombre}</strong></td>
+    <td>${a.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
+    <td>
+      <button class="btn btn-sm" onclick="openAfpForm('${a.id}')">Editar</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteAfp('${a.id}')">Eliminar</button>
+    </td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+function openAfpForm(id){
+  const a = id ? DB.afps.find(x=>x.id===id) : null;
+  document.getElementById('modalBody').innerHTML = `
+    <h3>${a?'Editar AFP':'Nueva AFP'}</h3>
+    <div class="form-grid">
+      <div class="full"><label>Nombre</label><input id="afp_nombre" value="${a?.nombre||''}" placeholder="AFP Confía, AFP Crecer..."></div>
+      <div class="full"><label class="check-row"><input type="checkbox" id="afp_activa" ${a && a.activa==='false' ? '' : 'checked'}> Activa</label></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitAfpForm('${id||''}')">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitAfpForm(id){
+  const rec = { id: id || uid(), nombre: val('afp_nombre'), activa: document.getElementById('afp_activa').checked ? 'true' : 'false' };
+  if(!rec.nombre){ toast('El nombre de la AFP es obligatorio','err'); return; }
+  const idx = DB.afps.findIndex(x=>x.id===id);
+  if(idx>=0) DB.afps[idx] = rec; else DB.afps.push(rec);
+  closeModal();
+  try{ await saveAfps(idx>=0?`Actualiza AFP ${rec.nombre}`:`Agrega AFP ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderAfps();
+}
+
+async function deleteAfp(id){
+  const a = DB.afps.find(x=>x.id===id);
+  const enUso = DB.empleados.some(e=>e.afp_id===id);
+  if(enUso){ toast('No se puede eliminar: hay empleados asignados a esta AFP','err'); return; }
+  if(!confirm(`¿Eliminar "${a.nombre}"?`)) return;
+  DB.afps = DB.afps.filter(x=>x.id!==id);
+  try{ await saveAfps(`Elimina AFP ${a.nombre}`); toast('Eliminada ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderAfps();
+}
+
+/* ============ INCAPACIDADES ============ */
+function renderIncapacidades(){
+  const fEmp = document.getElementById('fIncapEmp').value;
+  let rows = DB.incapacidades.slice().sort((a,b)=>(b.fecha_inicio||'').localeCompare(a.fecha_inicio||''));
+  if(fEmp) rows = rows.filter(i=>i.empleado_id===fEmp);
+  const wrap = document.getElementById('incapTableWrap');
+  if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin incapacidades registradas.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Empleado</th><th>Fecha inicio</th><th>Días</th><th>Motivo</th><th></th></tr></thead><tbody>
+  ${rows.map(i=>{
+    const emp = DB.empleados.find(e=>e.id===i.empleado_id);
+    return `<tr>
+      <td><strong>${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}</strong></td>
+      <td class="mono">${i.fecha_inicio||'—'}</td>
+      <td class="mono">${i.dias||0}</td>
+      <td>${i.motivo||'—'}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteIncapacidad('${i.id}')">Eliminar</button></td>
+    </tr>`;
+  }).join('')}
+  </tbody></table>`;
+}
+
+function openIncapForm(){
+  const opcionesEmp = DB.empleados.map(e=>({ id:e.id, label: `${e.nombre} ${e.apellido}` }));
+  document.getElementById('modalBody').innerHTML = `
+    <h3>Nueva incapacidad</h3>
+    <div class="sub" style="margin-bottom:12px;">Esto todavía no afecta el cálculo de la planilla — solo queda registrado.</div>
+    <div class="form-grid">
+      <div class="full"><label>Empleado</label>${comboHTML('i_emp', opcionesEmp, '', '', 'Buscar empleado...')}</div>
+      <div><label>Fecha de inicio</label><input id="i_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div><label>Días de incapacidad</label><input id="i_dias" type="number" min="1"></div>
+      <div class="full"><label>Motivo (opcional)</label><input id="i_motivo" placeholder="Enfermedad, accidente..."></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitIncapForm()">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitIncapForm(){
+  const empId = comboValor('i_emp');
+  const dias = Number(val('i_dias'));
+  if(!empId){ toast('Elige un empleado de la lista','err'); return; }
+  if(!dias || dias<=0){ toast('Escribe los días de incapacidad','err'); return; }
+  const rec = { id: uid(), empleado_id: empId, fecha_inicio: val('i_fecha'), dias, motivo: val('i_motivo') };
+  DB.incapacidades.push(rec);
+  closeModal();
+  try{ await saveIncapacidades(`Registra incapacidad`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderIncapacidades();
+}
+
+async function deleteIncapacidad(id){
+  if(!confirm('¿Eliminar este registro de incapacidad?')) return;
+  DB.incapacidades = DB.incapacidades.filter(x=>x.id!==id);
+  try{ await saveIncapacidades('Elimina registro de incapacidad'); toast('Eliminado ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderIncapacidades();
+}
+
 /* ============ SUPERVISORES ============ */
 function renderSupervisores(){
   const fCuenta = document.getElementById('fSupCuenta').value;
@@ -1413,8 +1638,11 @@ const COLUMNAS_EMPLEADOS = [
   { label:'Dirección', value: e => e.direccion||'' },
   { label:'Tipo de pago', value: e => e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora' },
   { label:'Tarifa', value: e => e.tarifa||'' },
+  { label:'Seguro Social', value: e => e.seguro_social||'' },
+  { label:'AFP', value: e => { const a = DB.afps.find(x=>x.id===e.afp_id); return a ? a.nombre : ''; } },
   { label:'Carné SRS', value: e => e.carne_srs||'' },
   { label:'Carné de empleado', value: e => e.carne_empleado||'' },
+  { label:'Visa', value: e => e.tiene_visa==='true' ? `Sí (vence ${e.visa_vencimiento||'sin fecha'})` : 'No' },
   { label:'Estado', value: e => e.fecha_baja ? 'De baja' : (e.activo==='true' ? 'Activo' : 'Inactivo') }
 ];
 const COLUMNAS_HERRAMIENTAS = [
@@ -1450,6 +1678,16 @@ const COLUMNAS_RENUNCIAS = [
   { label:'Fecha de baja', value: e => e.fecha_baja||'' },
   { label:'Motivo', value: e => e.motivo_baja||'' }
 ];
+const COLUMNAS_AFPS = [
+  { label:'Nombre', value: a => a.nombre||'' },
+  { label:'Estado', value: a => a.activa!=='false' ? 'Activa' : 'Inactiva' }
+];
+const COLUMNAS_INCAPACIDADES = [
+  { label:'Empleado', value: i => { const e = DB.empleados.find(x=>x.id===i.empleado_id); return e ? e.nombre+' '+e.apellido : ''; } },
+  { label:'Fecha inicio', value: i => i.fecha_inicio||'' },
+  { label:'Días', value: i => i.dias||'' },
+  { label:'Motivo', value: i => i.motivo||'' }
+];
 
 function accionExportar(seccion, tipo){
   let rows, columnas, filename, titulo;
@@ -1469,6 +1707,11 @@ function accionExportar(seccion, tipo){
     columnas = COLUMNAS_SUPERVISORES; filename='supervisores'; titulo='Supervisores';
   } else if(seccion==='renuncias'){
     rows = DB.empleados.filter(e=>e.fecha_baja); columnas = COLUMNAS_RENUNCIAS; filename='renuncias'; titulo='Renuncias';
+  } else if(seccion==='afps'){ rows = DB.afps.slice(); columnas = COLUMNAS_AFPS; filename='afps'; titulo='AFP'; }
+  else if(seccion==='incapacidades'){
+    const fEmp = document.getElementById('fIncapEmp').value;
+    rows = DB.incapacidades.slice(); if(fEmp) rows = rows.filter(i=>i.empleado_id===fEmp);
+    columnas = COLUMNAS_INCAPACIDADES; filename='incapacidades'; titulo='Incapacidades';
   } else return;
 
   if(rows.length===0){ toast('No hay filas para exportar con los filtros actuales','err'); return; }
