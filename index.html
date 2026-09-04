@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rebeca · Control de planilla</title>
+<title>SEMERC · Control de planilla</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -154,10 +154,8 @@
 <!-- ============ GATE: connect to GitHub ============ -->
 <div id="gate">
   <div class="gate-card">
-    <h1>Rebeca · Control de planilla</h1>
-    <p>Pega tu token de acceso de GitHub para leer y guardar los datos del repositorio <strong>dsantosg94/Rebeca-rrhh</strong>. El token no se guarda en ningún lado — solo vive en esta pestaña mientras la tengas abierta.</p>
-    <label for="tokenInput">Token de acceso (fine-grained, permiso Contents: Read and write)</label>
-    <input type="password" id="tokenInput" placeholder="github_pat_...">
+    <h1 style="text-align:center;">SEMERC</h1>
+    <input type="password" id="tokenInput" placeholder="Pega tu token" style="margin-top:16px;">
     <label class="check-row" style="margin:-6px 0 16px;">
       <input type="checkbox" id="rememberToken" checked> Recordar en este navegador (no pedir de nuevo aquí)
     </label>
@@ -173,7 +171,7 @@
 <div id="app">
   <div class="shell">
     <div class="sidebar">
-      <div class="brand">Rebeca RRHH<span><span class="conn-dot"></span>Conectado</span></div>
+      <div class="brand">SEMERC<span><span class="conn-dot"></span>Conectado</span></div>
       <div class="nav-item active" data-tab="empleados" onclick="switchTab('empleados')">👤 Empleados</div>
       <div class="nav-item" data-tab="cuentas" onclick="switchTab('cuentas')">🏢 Cuentas</div>
       <div class="nav-item nav-sub" data-tab="salas" onclick="switchTab('salas')">↳ Salas de venta</div>
@@ -184,7 +182,10 @@
       <div class="nav-item" data-tab="incapacidades" onclick="switchTab('incapacidades')">🩹 Incapacidades</div>
       <div class="nav-item" data-tab="planilla" onclick="switchTab('planilla')">💵 Planilla</div>
       <div class="nav-item" data-tab="renuncias" onclick="switchTab('renuncias')">🚪 Renuncias</div>
-      <div class="sidebar-foot">dsantosg94/Rebeca-rrhh<br>rama main<br><a href="#" onclick="olvidarToken();return false;" style="color:#C6D0E2;">Olvidar token guardado</a></div>
+      <div class="sidebar-foot">
+        <a href="#" onclick="cerrarSesion();return false;" style="color:#C6D0E2;">Cerrar sesión</a><br>
+        <a href="#" onclick="olvidarToken();return false;" style="color:#C6D0E2;">Olvidar token guardado</a>
+      </div>
     </div>
 
     <div class="main">
@@ -457,6 +458,16 @@ function storageAvailable(){
 function olvidarToken(){
   try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
   location.reload();
+}
+function cerrarSesion(){
+  TOKEN = '';
+  DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[] };
+  document.getElementById('app').style.display='none';
+  document.getElementById('gate').style.display='flex';
+  document.getElementById('tokenInput').value='';
+  document.getElementById('gate-error').style.display='none';
+  // Ojo: esto NO borra el token guardado en este navegador (si "Recordar" estaba marcado),
+  // así que al volver a abrir la página se reconecta solo.
 }
 
 /* Auto-conectar si ya hay un token guardado en este navegador */
