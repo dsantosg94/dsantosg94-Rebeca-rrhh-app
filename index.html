@@ -254,6 +254,7 @@
             <button class="btn" onclick="accionCuentaSeleccion('editar')">Editar</button>
             <button class="btn" onclick="accionCuentaSeleccion('activar')">Activar</button>
             <button class="btn btn-danger" onclick="accionCuentaSeleccion('desactivar')">Desactivar</button>
+            <button class="btn btn-danger" onclick="accionCuentaSeleccion('eliminar')">Eliminar</button>
             <span class="sub" id="cuentaSeleccionInfo">Ninguna cuenta seleccionada</span>
           </div>
           <div id="cuentasTableWrap" class="table-scroll"></div>
@@ -283,6 +284,7 @@
             <button class="btn" onclick="accionSalaSeleccion('editar')">Editar</button>
             <button class="btn" onclick="accionSalaSeleccion('activar')">Activar</button>
             <button class="btn btn-danger" onclick="accionSalaSeleccion('desactivar')">Desactivar</button>
+            <button class="btn btn-danger" onclick="accionSalaSeleccion('eliminar')">Eliminar</button>
             <span class="sub" id="salaSeleccionInfo">Ninguna sala seleccionada</span>
           </div>
           <div id="salasTableWrap" class="table-scroll"></div>
@@ -1111,7 +1113,13 @@ async function devolverHerramientasMultiple(ids){
   renderHerramientas();
 }
 async function eliminarHerramientasMultiple(ids){
-  const nombres = ids.map(id=>DB.herramientas.find(h=>h.id===id)).filter(Boolean).map(h=>h.nombre).join(', ');
+  const seleccionadas = ids.map(id=>DB.herramientas.find(h=>h.id===id)).filter(Boolean);
+  const asignadas = seleccionadas.filter(h=>h.estado==='asignada');
+  if(asignadas.length>0){
+    toast(`No se puede eliminar: ${asignadas.map(h=>h.nombre).join(', ')} está(n) asignada(s). Márcala(s) como devuelta primero.`,'err');
+    return;
+  }
+  const nombres = seleccionadas.map(h=>h.nombre).join(', ');
   if(!confirm(`¿Eliminar ${ids.length>1?ids.length+' herramientas':nombres}?`)) return;
   DB.herramientas = DB.herramientas.filter(h=>!ids.includes(h.id));
   ids.forEach(id=>HERR_SELECCIONADOS.delete(id));
@@ -1446,11 +1454,35 @@ function accionCuentaSeleccion(accion){
     openCuentaForm(ids[0]);
   } else if(accion==='activar' || accion==='desactivar'){
     toggleCuentasMultiple(ids, accion==='activar');
+  } else if(accion==='eliminar'){
+    eliminarCuentasMultiple(ids);
   }
 }
 async function toggleCuentasMultiple(ids, activar){
   ids.forEach(id=>{ const c = DB.cuentas.find(x=>x.id===id); if(c) c.activa = activar ? 'true' : 'false'; });
+  ids.forEach(id=>CUENTA_SELECCIONADOS.delete(id));
   try{ await saveCuentas(`${activar?'Activa':'Desactiva'} ${ids.length} cuenta(s)`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderCuentas();
+}
+async function eliminarCuentasMultiple(ids){
+  const cuentasSel = ids.map(id=>DB.cuentas.find(c=>c.id===id)).filter(Boolean);
+  const bloqueadas = [];
+  cuentasSel.forEach(c=>{
+    const motivos = [];
+    if(DB.salas.some(s=>s.cuenta_id===c.id)) motivos.push('tiene salas de venta');
+    if(DB.empleados.some(e=>e.cuenta_id===c.id)) motivos.push('tiene empleados');
+    if(DB.supervisores.some(s=>s.cuenta_id===c.id)) motivos.push('tiene supervisores');
+    if(motivos.length>0) bloqueadas.push(`${c.nombre} (${motivos.join(', ')})`);
+  });
+  if(bloqueadas.length>0){
+    toast(`No se puede eliminar: ${bloqueadas.join(' · ')}. Quita o reasigna esos registros primero.`,'err');
+    return;
+  }
+  if(!confirm(`¿Eliminar ${cuentasSel.length>1?cuentasSel.length+' cuentas':cuentasSel[0].nombre}? Esta acción no se puede deshacer.`)) return;
+  DB.cuentas = DB.cuentas.filter(c=>!ids.includes(c.id));
+  ids.forEach(id=>CUENTA_SELECCIONADOS.delete(id));
+  try{ await saveCuentas(`Elimina ${ids.length} cuenta(s)`); toast('Eliminada(s) ✓','ok'); }
   catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
   populateFilters(); renderCuentas();
 }
@@ -1533,11 +1565,28 @@ function accionSalaSeleccion(accion){
     openSalaForm(ids[0]);
   } else if(accion==='activar' || accion==='desactivar'){
     toggleSalasMultiple(ids, accion==='activar');
+  } else if(accion==='eliminar'){
+    eliminarSalasMultiple(ids);
   }
 }
 async function toggleSalasMultiple(ids, activar){
   ids.forEach(id=>{ const s = DB.salas.find(x=>x.id===id); if(s) s.activa = activar ? 'true' : 'false'; });
+  ids.forEach(id=>SALA_SELECCIONADOS.delete(id));
   try{ await saveSalas(`${activar?'Activa':'Desactiva'} ${ids.length} sala(s)`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  populateFilters(); renderSalas();
+}
+async function eliminarSalasMultiple(ids){
+  const salasSel = ids.map(id=>DB.salas.find(s=>s.id===id)).filter(Boolean);
+  const bloqueadas = salasSel.filter(s => DB.empleados.some(e=>e.sala_id===s.id && e.activo==='true'));
+  if(bloqueadas.length>0){
+    toast(`No se puede eliminar: ${bloqueadas.map(s=>s.nombre).join(', ')} todavía tiene(n) empleados activos asignados.`,'err');
+    return;
+  }
+  if(!confirm(`¿Eliminar ${salasSel.length>1?salasSel.length+' salas':salasSel[0].nombre}? Esta acción no se puede deshacer.`)) return;
+  DB.salas = DB.salas.filter(s=>!ids.includes(s.id));
+  ids.forEach(id=>SALA_SELECCIONADOS.delete(id));
+  try{ await saveSalas(`Elimina ${ids.length} sala(s)`); toast('Eliminada(s) ✓','ok'); }
   catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
   populateFilters(); renderSalas();
 }
@@ -1545,12 +1594,20 @@ async function toggleSalasMultiple(ids, activar){
 function openSalaForm(id){
   const s = id ? DB.salas.find(x=>x.id===id) : null;
   const optsCuenta = DB.cuentas.map(c=>`<option value="${c.id}" ${s?.cuenta_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
+  const supervisorActual = id ? DB.supervisores.find(sup=>sup.sala_id===id) : null;
+  const opcionesSupervisor = DB.supervisores.map(sup=>({
+    id: sup.id,
+    label: `${sup.nombre} ${sup.apellido}${sup.sala_id && sup.sala_id!==id ? ' (actualmente: '+(nombreSala(sup.sala_id)||'otra sala')+')' : ''}`
+  }));
   document.getElementById('modalBody').innerHTML = `
     <h3>${s?'Editar sala de venta':'Nueva sala de venta'}</h3>
     <div class="form-grid">
       <div class="full"><label>Nombre de la sala</label><input id="sl_nombre" value="${s?.nombre||''}" placeholder="Ej. San Salvador Centro"></div>
       <div class="full"><label>Cuenta</label><select id="sl_cuenta"><option value="">Sin asignar</option>${optsCuenta}</select>
         ${DB.cuentas.length===0 ? '<div class="sub" style="margin-top:4px;">Primero crea una cuenta en la pestaña "Cuentas".</div>' : ''}
+      </div>
+      <div class="full"><label>Supervisor</label>${comboHTML('sl_supervisor', opcionesSupervisor, supervisorActual?.id||'', supervisorActual ? supervisorActual.nombre+' '+supervisorActual.apellido : '', 'Buscar supervisor...')}
+        ${DB.supervisores.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes supervisores — puedes crear uno en la pestaña "Supervisores" y volver aquí para asignarlo.</div>' : ''}
       </div>
       <div class="full"><label class="check-row"><input type="checkbox" id="sl_activa" ${s && s.activa==='false' ? '' : 'checked'}> Sala activa</label></div>
     </div>
@@ -1562,18 +1619,35 @@ function openSalaForm(id){
 }
 
 async function submitSalaForm(id){
+  const salaId = id || uid();
   const rec = {
-    id: id || uid(), nombre: val('sl_nombre'), cuenta_id: val('sl_cuenta'),
+    id: salaId, nombre: val('sl_nombre'), cuenta_id: val('sl_cuenta'),
     activa: document.getElementById('sl_activa').checked ? 'true' : 'false'
   };
   if(!rec.nombre){ toast('El nombre de la sala es obligatorio','err'); return; }
   if(!rec.cuenta_id){ toast('Elige a qué cuenta pertenece esta sala','err'); return; }
   const idx = DB.salas.findIndex(x=>x.id===id);
   if(idx>=0) DB.salas[idx] = rec; else DB.salas.push(rec);
+
+  // Sincroniza el supervisor elegido con esta sala (y libera al que tenía antes, si cambió)
+  const nuevoSupervisorId = comboValor('sl_supervisor');
+  let supervisoresCambiaron = false;
+  DB.supervisores.forEach(sup=>{
+    if(sup.sala_id===salaId && sup.id!==nuevoSupervisorId){ sup.sala_id=''; supervisoresCambiaron = true; }
+  });
+  if(nuevoSupervisorId){
+    const sup = DB.supervisores.find(x=>x.id===nuevoSupervisorId);
+    if(sup && (sup.sala_id!==salaId || sup.cuenta_id!==rec.cuenta_id)){ sup.sala_id = salaId; sup.cuenta_id = rec.cuenta_id; supervisoresCambiaron = true; }
+  }
+
   closeModal();
-  try{ await saveSalas(idx>=0?`Actualiza sala ${rec.nombre}`:`Agrega sala ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  try{
+    await saveSalas(idx>=0?`Actualiza sala ${rec.nombre}`:`Agrega sala ${rec.nombre}`);
+    if(supervisoresCambiaron) await saveSupervisores(`Actualiza supervisor de la sala ${rec.nombre}`);
+    toast('Guardado en GitHub ✓','ok');
+  }
   catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
-  populateFilters(); renderSalas();
+  populateFilters(); renderSalas(); renderSupervisores();
 }
 
 /* ============ AFP ============ */
@@ -1990,7 +2064,26 @@ function accionExportar(seccion, tipo){
 
 /* ============ Utils ============ */
 function val(id){ return document.getElementById(id).value.trim(); }
-function closeModal(){ document.getElementById('overlay').classList.remove('show'); document.getElementById('modalBody').innerHTML=''; }
+function closeModal(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('modalBody').innerHTML='';
+  EMP_SELECCIONADOS.clear(); CUENTA_SELECCIONADOS.clear(); SALA_SELECCIONADOS.clear();
+  SUP_SELECCIONADOS.clear(); AFP_SELECCIONADOS.clear(); HERR_SELECCIONADOS.clear(); INCAP_SELECCIONADOS.clear();
+  refrescarPestanaActiva();
+}
+function refrescarPestanaActiva(){
+  const activo = document.querySelector('.nav-item.active');
+  if(!activo) return;
+  const tab = activo.getAttribute('data-tab');
+  if(tab==='empleados') renderEmpleados();
+  else if(tab==='cuentas') renderCuentas();
+  else if(tab==='salas') renderSalas();
+  else if(tab==='supervisores') renderSupervisores();
+  else if(tab==='afps') renderAfps();
+  else if(tab==='herramientas') renderHerramientas();
+  else if(tab==='incapacidades') renderIncapacidades();
+  else if(tab==='renuncias') renderRenuncias();
+}
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
 </script>
 </body>
