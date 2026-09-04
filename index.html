@@ -1456,12 +1456,13 @@ function renderCuentas(){
   if(DB.cuentas.length===0){ wrap.innerHTML='<div class="empty-state">Sin cuentas todavía. Crea la primera con "+ Nueva cuenta".</div>'; actualizarBarraCuenta(); return; }
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Ninguna cuenta coincide con la búsqueda.</div>'; actualizarBarraCuenta(); return; }
   const todosMarcados = rows.length>0 && rows.every(c=>CUENTA_SELECCIONADOS.has(c.id));
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosCuenta(this.checked)"></th><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosCuenta(this.checked)"></th><th>Nombre</th><th>Código</th><th>Contacto principal</th><th>Supervisor(es)</th><th>Teléfono</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(c=>`<tr>
     <td class="col-actions"><input type="checkbox" ${CUENTA_SELECCIONADOS.has(c.id)?'checked':''} onchange="toggleCuentaSeleccion('${c.id}', this.checked)"></td>
     <td><strong>${c.nombre}</strong></td>
     <td class="mono">${c.codigo||'—'}</td>
     <td>${c.contacto_principal||'—'}</td>
+    <td>${supervisorDeCuenta(c.id)||'—'}</td>
     <td class="mono">${c.telefono||'—'}</td>
     <td>${c.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
   </tr>`).join('')}
@@ -1480,14 +1481,31 @@ function actualizarBarraCuenta(){
   const n = CUENTA_SELECCIONADOS.size;
   info.textContent = n===0 ? 'Ninguna cuenta seleccionada' : (n===1 ? '1 cuenta seleccionada' : `${n} cuentas seleccionadas`);
 }
+function motivosBloqueoCuenta(c){
+  const motivos = [];
+  if(DB.salas.some(s=>s.cuenta_id===c.id)) motivos.push('tiene salas de venta');
+  if(DB.empleados.some(e=>e.cuenta_id===c.id)) motivos.push('tiene empleados');
+  if(DB.supervisores.some(s=>s.cuenta_id===c.id)) motivos.push('tiene supervisores');
+  return motivos;
+}
+
 function accionCuentaSeleccion(accion){
   const ids = [...CUENTA_SELECCIONADOS];
   if(ids.length===0){ toast('Selecciona al menos una cuenta primero','err'); return; }
   if(accion==='editar'){
     if(ids.length>1){ toast('Selecciona solo una cuenta para editar','err'); return; }
     openCuentaForm(ids[0]);
-  } else if(accion==='activar' || accion==='desactivar'){
-    toggleCuentasMultiple(ids, accion==='activar');
+  } else if(accion==='activar'){
+    toggleCuentasMultiple(ids, true);
+  } else if(accion==='desactivar'){
+    const cuentasSel = ids.map(id=>DB.cuentas.find(c=>c.id===id)).filter(Boolean);
+    const bloqueadas = cuentasSel.filter(c=>motivosBloqueoCuenta(c).length>0)
+      .map(c=>`${c.nombre} (${motivosBloqueoCuenta(c).join(', ')})`);
+    if(bloqueadas.length>0){
+      toast(`No se puede desactivar: ${bloqueadas.join(' · ')}. Quita o reasigna esos registros primero.`,'err');
+      return;
+    }
+    toggleCuentasMultiple(ids, false);
   } else if(accion==='eliminar'){
     eliminarCuentasMultiple(ids);
   }
@@ -1501,14 +1519,8 @@ async function toggleCuentasMultiple(ids, activar){
 }
 async function eliminarCuentasMultiple(ids){
   const cuentasSel = ids.map(id=>DB.cuentas.find(c=>c.id===id)).filter(Boolean);
-  const bloqueadas = [];
-  cuentasSel.forEach(c=>{
-    const motivos = [];
-    if(DB.salas.some(s=>s.cuenta_id===c.id)) motivos.push('tiene salas de venta');
-    if(DB.empleados.some(e=>e.cuenta_id===c.id)) motivos.push('tiene empleados');
-    if(DB.supervisores.some(s=>s.cuenta_id===c.id)) motivos.push('tiene supervisores');
-    if(motivos.length>0) bloqueadas.push(`${c.nombre} (${motivos.join(', ')})`);
-  });
+  const bloqueadas = cuentasSel.filter(c=>motivosBloqueoCuenta(c).length>0)
+    .map(c=>`${c.nombre} (${motivosBloqueoCuenta(c).join(', ')})`);
   if(bloqueadas.length>0){
     toast(`No se puede eliminar: ${bloqueadas.join(' · ')}. Quita o reasigna esos registros primero.`,'err');
     return;
@@ -1597,8 +1609,16 @@ function accionSalaSeleccion(accion){
   if(accion==='editar'){
     if(ids.length>1){ toast('Selecciona solo una sala para editar','err'); return; }
     openSalaForm(ids[0]);
-  } else if(accion==='activar' || accion==='desactivar'){
-    toggleSalasMultiple(ids, accion==='activar');
+  } else if(accion==='activar'){
+    toggleSalasMultiple(ids, true);
+  } else if(accion==='desactivar'){
+    const salasSel = ids.map(id=>DB.salas.find(s=>s.id===id)).filter(Boolean);
+    const bloqueadas = salasSel.filter(s => DB.empleados.some(e=>e.sala_id===s.id && e.activo==='true'));
+    if(bloqueadas.length>0){
+      toast(`No se puede desactivar: ${bloqueadas.map(s=>s.nombre).join(', ')} todavía tiene(n) empleados activos asignados.`,'err');
+      return;
+    }
+    toggleSalasMultiple(ids, false);
   } else if(accion==='eliminar'){
     eliminarSalasMultiple(ids);
   }
@@ -2072,6 +2092,7 @@ const COLUMNAS_CUENTAS = [
   { label:'Nombre', value: c => c.nombre||'' },
   { label:'Código', value: c => c.codigo||'' },
   { label:'Contacto principal', value: c => c.contacto_principal||'' },
+  { label:'Supervisor(es)', value: c => supervisorDeCuenta(c.id) || '' },
   { label:'Teléfono', value: c => c.telefono||'' },
   { label:'Dirección', value: c => c.direccion||'' },
   { label:'Estado', value: c => c.activa!=='false' ? 'Activa' : 'Inactiva' }
