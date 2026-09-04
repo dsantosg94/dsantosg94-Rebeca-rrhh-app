@@ -1591,22 +1591,36 @@ async function eliminarSalasMultiple(ids){
   populateFilters(); renderSalas();
 }
 
+function actualizarSupervisoresPorCuentaSala(cuentaId, salaIdActual){
+  const sups = DB.supervisores.filter(sup=>sup.cuenta_id===cuentaId);
+  COMBO_DATA['sl_supervisor'] = sups.map(sup=>({
+    id: sup.id,
+    label: `${sup.nombre} ${sup.apellido}${sup.sala_id && sup.sala_id!==salaIdActual ? ' (actualmente: '+(nombreSala(sup.sala_id)||'otra sala')+')' : ''}`
+  }));
+  const searchEl = document.getElementById('sl_supervisor_search');
+  const valueEl = document.getElementById('sl_supervisor_value');
+  if(searchEl){ searchEl.value=''; valueEl.value=''; }
+  if(searchEl) searchEl.placeholder = (!cuentaId) ? 'Elige primero una cuenta' : (sups.length===0 ? 'Esta cuenta no tiene supervisores' : 'Buscar supervisor...');
+}
+
 function openSalaForm(id){
   const s = id ? DB.salas.find(x=>x.id===id) : null;
   const optsCuenta = DB.cuentas.map(c=>`<option value="${c.id}" ${s?.cuenta_id===c.id?'selected':''}>${c.nombre}</option>`).join('');
   const supervisorActual = id ? DB.supervisores.find(sup=>sup.sala_id===id) : null;
-  const opcionesSupervisor = DB.supervisores.map(sup=>({
-    id: sup.id,
-    label: `${sup.nombre} ${sup.apellido}${sup.sala_id && sup.sala_id!==id ? ' (actualmente: '+(nombreSala(sup.sala_id)||'otra sala')+')' : ''}`
-  }));
+  const opcionesSupervisorInicial = s?.cuenta_id
+    ? DB.supervisores.filter(sup=>sup.cuenta_id===s.cuenta_id).map(sup=>({
+        id: sup.id,
+        label: `${sup.nombre} ${sup.apellido}${sup.sala_id && sup.sala_id!==id ? ' (actualmente: '+(nombreSala(sup.sala_id)||'otra sala')+')' : ''}`
+      }))
+    : [];
   document.getElementById('modalBody').innerHTML = `
     <h3>${s?'Editar sala de venta':'Nueva sala de venta'}</h3>
     <div class="form-grid">
       <div class="full"><label>Nombre de la sala</label><input id="sl_nombre" value="${s?.nombre||''}" placeholder="Ej. San Salvador Centro"></div>
-      <div class="full"><label>Cuenta</label><select id="sl_cuenta"><option value="">Sin asignar</option>${optsCuenta}</select>
+      <div class="full"><label>Cuenta</label><select id="sl_cuenta" onchange="actualizarSupervisoresPorCuentaSala(this.value, '${id||''}')"><option value="">Sin asignar</option>${optsCuenta}</select>
         ${DB.cuentas.length===0 ? '<div class="sub" style="margin-top:4px;">Primero crea una cuenta en la pestaña "Cuentas".</div>' : ''}
       </div>
-      <div class="full"><label>Supervisor</label>${comboHTML('sl_supervisor', opcionesSupervisor, supervisorActual?.id||'', supervisorActual ? supervisorActual.nombre+' '+supervisorActual.apellido : '', 'Buscar supervisor...')}
+      <div class="full"><label>Supervisor</label>${comboHTML('sl_supervisor', opcionesSupervisorInicial, supervisorActual?.id||'', supervisorActual ? supervisorActual.nombre+' '+supervisorActual.apellido : '', s?.cuenta_id ? 'Buscar supervisor...' : 'Elige primero una cuenta')}
         ${DB.supervisores.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes supervisores — puedes crear uno en la pestaña "Supervisores" y volver aquí para asignarlo.</div>' : ''}
       </div>
       <div class="full"><label class="check-row"><input type="checkbox" id="sl_activa" ${s && s.activa==='false' ? '' : 'checked'}> Sala activa</label></div>
@@ -1863,21 +1877,39 @@ async function eliminarSupervisoresMultiple(ids){
   renderSupervisores();
 }
 
+function actualizarSalasPorCuentaSup(cuentaId, mantenerSeleccion){
+  const salas = DB.salas.filter(s=>s.cuenta_id===cuentaId && s.activa!=='false');
+  COMBO_DATA['s_sala'] = salas.map(s=>({ id:s.id, label:s.nombre }));
+  if(!mantenerSeleccion){
+    const searchEl = document.getElementById('s_sala_search');
+    const valueEl = document.getElementById('s_sala_value');
+    if(searchEl){ searchEl.value=''; valueEl.value=''; }
+  }
+  const searchEl = document.getElementById('s_sala_search');
+  if(searchEl) searchEl.placeholder = salas.length===0 ? 'Esta cuenta no tiene salas todavía' : 'Buscar sala...';
+}
+
 function openSupForm(id){
   const s = id ? DB.supervisores.find(x=>x.id===id) : null;
-  const salasActivas = DB.salas.filter(sl=>sl.activa!=='false');
-  const opcionesSala = salasActivas.map(sl=>({ id:sl.id, label: `${sl.nombre} (${nombreCuenta(sl.cuenta_id)})` }));
-  const salaSel = s?.sala_id ? salasActivas.find(sl=>sl.id===s.sala_id) : null;
-  const labelSalaSel = salaSel ? `${salaSel.nombre} (${nombreCuenta(salaSel.cuenta_id)})` : '';
+  const cuentasActivas = DB.cuentas.filter(c=>c.activa!=='false');
+  const opcionesCuenta = cuentasActivas.map(c=>({ id:c.id, label:c.nombre }));
+  const cuentaSel = s?.cuenta_id ? cuentasActivas.find(c=>c.id===s.cuenta_id) : null;
+
+  const opcionesSalaInicial = s?.cuenta_id
+    ? DB.salas.filter(sl=>sl.cuenta_id===s.cuenta_id && sl.activa!=='false').map(sl=>({ id:sl.id, label:sl.nombre }))
+    : [];
+  const salaSel = s?.sala_id ? DB.salas.find(sl=>sl.id===s.sala_id) : null;
+
   document.getElementById('modalBody').innerHTML = `
     <h3>${s?'Editar supervisor':'Nuevo supervisor'}</h3>
-    <div class="sub" style="margin-bottom:12px;">Persona de la empresa cliente a cargo del personal que le prestas en esa sala — no es un empleado tuyo, no recibe pago de tu parte. Una sala puede no tener supervisor todavía.</div>
+    <div class="sub" style="margin-bottom:12px;">Persona de la empresa cliente a cargo del personal que le prestas — no es un empleado tuyo, no recibe pago de tu parte. Una sala puede no tener supervisor todavía.</div>
     <div class="form-grid">
       <div><label>Nombre</label><input id="s_nombre" value="${s?.nombre||''}"></div>
       <div><label>Apellido</label><input id="s_apellido" value="${s?.apellido||''}"></div>
       <div><label>Teléfono</label><input id="s_telefono" value="${s?.telefono||''}"></div>
       <div><label>Correo</label><input id="s_correo" value="${s?.correo||''}"></div>
-      <div class="full"><label>Sala de venta (opcional)</label>${comboHTML('s_sala', opcionesSala, s?.sala_id||'', labelSalaSel, 'Buscar sala...')}</div>
+      <div class="full"><label>Cuenta</label>${comboHTML('s_cuenta', opcionesCuenta, s?.cuenta_id||'', cuentaSel?.nombre||'', 'Buscar cuenta...', 'actualizarSalasPorCuentaSup')}</div>
+      <div class="full"><label>Sala de venta (opcional)</label>${comboHTML('s_sala', opcionesSalaInicial, s?.sala_id||'', salaSel?.nombre||'', s?.cuenta_id ? 'Buscar sala...' : 'Elige primero una cuenta')}</div>
     </div>
     <div class="form-actions">
       <button class="btn" onclick="closeModal()">Cancelar</button>
@@ -1887,12 +1919,13 @@ function openSupForm(id){
 }
 
 async function submitSupForm(id){
+  const cuentaId = comboValor('s_cuenta');
   const salaId = comboValor('s_sala');
-  const sala = DB.salas.find(sl=>sl.id===salaId);
+  if(!cuentaId){ toast('Elige a qué cuenta pertenece este supervisor','err'); return; }
   const rec = {
     id: id || uid(), nombre: val('s_nombre'), apellido: val('s_apellido'),
     telefono: val('s_telefono'), correo: val('s_correo'),
-    sala_id: salaId, cuenta_id: sala ? sala.cuenta_id : ''
+    cuenta_id: cuentaId, sala_id: salaId
   };
   if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
   const idx = DB.supervisores.findIndex(x=>x.id===id);
