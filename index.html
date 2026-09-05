@@ -190,6 +190,7 @@
       <div class="nav-item" data-tab="incapacidades" onclick="switchTab('incapacidades')">🩹 Incapacidades</div>
       <div class="nav-item" data-tab="planilla" onclick="switchTab('planilla')">💵 Planilla</div>
       <div class="nav-item" data-tab="renuncias" onclick="switchTab('renuncias')">🚪 Renuncias</div>
+      <div class="nav-item nav-sub" data-tab="tipos_renuncia" onclick="switchTab('tipos_renuncia')">↳ Tipos de renuncia</div>
       <div class="sidebar-foot">
         <a href="#" onclick="cerrarSesion();return false;" style="color:#C6D0E2;">Cerrar sesión</a><br>
         <a href="#" onclick="olvidarToken();return false;" style="color:#C6D0E2;">Olvidar token guardado</a>
@@ -476,6 +477,31 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
         </div>
       </div>
 
+      <!-- TIPOS DE RENUNCIA -->
+      <div class="tab-section" id="tab-tipos_renuncia">
+        <div class="topbar">
+          <div><h2>Tipos de renuncia</h2><div class="sub">Catálogo de motivos para usar al dar de baja a un empleado</div></div>
+          <button class="btn btn-add" onclick="openTipoRenunciaForm()">+ Nuevo tipo</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div></div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('tipos_renuncia','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('tipos_renuncia','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('tipos_renuncia','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('tipos_renuncia','pdf')">PDF</button>
+            </div>
+          </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionTipoRenunciaSeleccion('editar')">Editar</button>
+            <button class="btn btn-danger" onclick="accionTipoRenunciaSeleccion('eliminar')">Eliminar</button>
+            <span class="sub" id="tipoRenunciaSeleccionInfo">Ningún tipo seleccionado</span>
+          </div>
+          <div id="tiposRenunciaTableWrap" class="table-scroll"></div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -492,8 +518,8 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
 const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
-const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado','seguro_social','afp_id','tiene_visa','visa_vencimiento'];
+const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv' };
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado','seguro_social','afp_id','tiene_visa','visa_vencimiento','tipo_renuncia_id'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
@@ -501,11 +527,12 @@ const SUP_H = ['id','nombre','apellido','telefono','correo','sala_id','cuenta_id
 const SALA_H = ['id','nombre','cuenta_id','activa'];
 const AFP_H = ['id','nombre','activa'];
 const INCAP_H = ['id','empleado_id','fecha_inicio','dias','motivo'];
+const TIPO_RENUNCIA_H = ['id','nombre','activo'];
 
 const TOKEN_KEY = 'rebeca_gh_token';
 let TOKEN = '';
-let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[] };
-let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null };
+let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[], tipos_renuncia:[] };
+let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null, tipos_renuncia:null };
 
 function storageAvailable(){
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; }
@@ -631,10 +658,10 @@ async function connect(silent){
   if(!t){ if(!silent){ errEl.textContent='Pega tu token primero.'; errEl.style.display='block'; } return; }
   TOKEN = t;
   try{
-    const [emp, herr, asis, cta, sup, sal, afp, inc] = await Promise.all([
+    const [emp, herr, asis, cta, sup, sal, afp, inc, tr] = await Promise.all([
       ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia),
       ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores), ghGetFileOpcional(FILES.salas),
-      ghGetFileOpcional(FILES.afps), ghGetFileOpcional(FILES.incapacidades)
+      ghGetFileOpcional(FILES.afps), ghGetFileOpcional(FILES.incapacidades), ghGetFileOpcional(FILES.tipos_renuncia)
     ]);
     DB.empleados = parseCSV(emp.text); SHA.empleados = emp.sha;
     DB.herramientas = parseCSV(herr.text); SHA.herramientas = herr.sha;
@@ -644,6 +671,7 @@ async function connect(silent){
     DB.salas = parseCSV(sal.text); SHA.salas = sal.sha;
     DB.afps = parseCSV(afp.text); SHA.afps = afp.sha;
     DB.incapacidades = parseCSV(inc.text); SHA.incapacidades = inc.sha;
+    DB.tipos_renuncia = parseCSV(tr.text); SHA.tipos_renuncia = tr.sha;
 
     const remember = document.getElementById('rememberToken').checked;
     if(remember && storageAvailable()){
@@ -653,7 +681,7 @@ async function connect(silent){
     document.getElementById('gate').style.display='none';
     document.getElementById('app').style.display='block';
     populateFilters();
-    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas(); renderAfps(); renderIncapacidades();
+    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas(); renderAfps(); renderIncapacidades(); renderTiposRenuncia();
     try{
       const savedUrl = localStorage.getItem(GFORM_URL_KEY);
       if(savedUrl) document.getElementById('gformUrl').value = savedUrl;
@@ -693,6 +721,9 @@ async function saveAfps(msg){
 }
 async function saveIncapacidades(msg){
   SHA.incapacidades = await ghPutFile(FILES.incapacidades, toCSV(INCAP_H, DB.incapacidades), SHA.incapacidades, msg);
+}
+async function saveTiposRenuncia(msg){
+  SHA.tipos_renuncia = await ghPutFile(FILES.tipos_renuncia, toCSV(TIPO_RENUNCIA_H, DB.tipos_renuncia), SHA.tipos_renuncia, msg);
 }
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -898,12 +929,18 @@ async function darDeBajaMultiple(ids){
     return;
   }
   const nombres = empleadosSel.map(e=>e.nombre+' '+e.apellido).join(', ');
+  const tiposActivos = DB.tipos_renuncia.filter(t=>t.activo!=='false');
+  const optsTipo = tiposActivos.map(t=>`<option value="${t.id}">${t.nombre}</option>`).join('');
   document.getElementById('modalBody').innerHTML = `
     <h3>Dar de baja a ${empleadosSel.length>1 ? empleadosSel.length+' empleados' : nombres}</h3>
     ${empleadosSel.length>1 ? `<div class="sub" style="margin-bottom:12px;">${nombres}</div>` : ''}
     <div class="form-grid">
       <div class="full"><label>Fecha de baja</label><input id="b_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
-      <div class="full"><label>Motivo (opcional)</label><input id="b_motivo" placeholder="Renuncia, fin de contrato..."></div>
+      <div class="full"><label>Tipo de renuncia</label>
+        <select id="b_tipo"><option value="">Sin especificar</option>${optsTipo}</select>
+        ${tiposActivos.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes tipos creados — ve a "Renuncias → Tipos de renuncia" y agrega el primero.</div>' : ''}
+      </div>
+      <div class="full"><label>Motivo (opcional)</label><input id="b_motivo" placeholder="Detalle adicional..."></div>
     </div>
     <div class="form-actions">
       <button class="btn" onclick="closeModal()">Cancelar</button>
@@ -914,10 +951,11 @@ async function darDeBajaMultiple(ids){
 
 async function confirmarBajaMultiple(ids){
   const fecha = val('b_fecha') || new Date().toISOString().slice(0,10);
+  const tipoRenunciaId = val('b_tipo');
   const motivo = val('b_motivo');
   ids.forEach(id=>{
     const e = DB.empleados.find(x=>x.id===id);
-    if(e){ e.activo='false'; e.fecha_baja=fecha; e.motivo_baja=motivo; }
+    if(e){ e.activo='false'; e.fecha_baja=fecha; e.tipo_renuncia_id=tipoRenunciaId; e.motivo_baja=motivo; }
   });
   closeModal();
   try{ await saveEmpleados(`Da de baja a ${ids.length} empleado(s)`); toast('Empleado(s) dado(s) de baja ✓','ok'); }
@@ -1027,13 +1065,13 @@ async function submitEmpForm(id){
   if(existente){
     if(rec.activo==='true'){
       // Se está reactivando: si tenía una baja registrada, se limpia para que ya no aparezca "De baja"
-      rec.fecha_baja=''; rec.motivo_baja='';
+      rec.fecha_baja=''; rec.motivo_baja=''; rec.tipo_renuncia_id='';
     } else {
-      rec.fecha_baja = existente.fecha_baja||''; rec.motivo_baja = existente.motivo_baja||'';
+      rec.fecha_baja = existente.fecha_baja||''; rec.motivo_baja = existente.motivo_baja||''; rec.tipo_renuncia_id = existente.tipo_renuncia_id||'';
     }
     rec.es_supervisor = existente.es_supervisor||'false';
   }
-  else{ rec.fecha_baja=''; rec.motivo_baja=''; }
+  else{ rec.fecha_baja=''; rec.motivo_baja=''; rec.tipo_renuncia_id=''; }
   if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
   const idx = DB.empleados.findIndex(x=>x.id===id);
   if(idx>=0) DB.empleados[idx] = rec; else DB.empleados.push(rec);
@@ -1788,6 +1826,80 @@ async function submitAfpForm(id){
   renderAfps();
 }
 
+/* ============ TIPOS DE RENUNCIA ============ */
+function nombreTipoRenuncia(id){
+  const t = DB.tipos_renuncia.find(x=>x.id===id);
+  return t ? t.nombre : '';
+}
+const TIPO_RENUNCIA_SELECCIONADOS = new Set();
+function renderTiposRenuncia(){
+  const wrap = document.getElementById('tiposRenunciaTableWrap');
+  if(DB.tipos_renuncia.length===0){ wrap.innerHTML='<div class="empty-state">Sin tipos de renuncia todavía. Agrega el primero con "+ Nuevo tipo".</div>'; actualizarBarraTipoRenuncia(); return; }
+  const todosMarcados = DB.tipos_renuncia.every(t=>TIPO_RENUNCIA_SELECCIONADOS.has(t.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosTipoRenuncia(this.checked)"></th><th>Nombre</th><th>Estado</th></tr></thead><tbody>
+  ${DB.tipos_renuncia.map(t=>`<tr>
+    <td class="col-actions"><input type="checkbox" ${TIPO_RENUNCIA_SELECCIONADOS.has(t.id)?'checked':''} onchange="toggleTipoRenunciaSeleccion('${t.id}', this.checked)"></td>
+    <td><strong>${t.nombre}</strong></td>
+    <td>${t.activo!=='false' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>'}</td>
+  </tr>`).join('')}
+  </tbody></table>`;
+  actualizarBarraTipoRenuncia();
+}
+function toggleTipoRenunciaSeleccion(id, checked){ checked ? TIPO_RENUNCIA_SELECCIONADOS.add(id) : TIPO_RENUNCIA_SELECCIONADOS.delete(id); actualizarBarraTipoRenuncia(); }
+function toggleTodosTipoRenuncia(checked){ DB.tipos_renuncia.forEach(t => checked ? TIPO_RENUNCIA_SELECCIONADOS.add(t.id) : TIPO_RENUNCIA_SELECCIONADOS.delete(t.id)); renderTiposRenuncia(); }
+function actualizarBarraTipoRenuncia(){
+  const info = document.getElementById('tipoRenunciaSeleccionInfo'); if(!info) return;
+  const n = TIPO_RENUNCIA_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ningún tipo seleccionado' : (n===1 ? '1 tipo seleccionado' : `${n} tipos seleccionados`);
+}
+function accionTipoRenunciaSeleccion(accion){
+  const ids = [...TIPO_RENUNCIA_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos un tipo primero','err'); return; }
+  if(accion==='editar'){
+    if(ids.length>1){ toast('Selecciona solo un tipo para editar','err'); return; }
+    openTipoRenunciaForm(ids[0]);
+  } else if(accion==='eliminar'){
+    eliminarTiposRenunciaMultiple(ids);
+  }
+}
+async function eliminarTiposRenunciaMultiple(ids){
+  const seleccionados = ids.map(id=>DB.tipos_renuncia.find(t=>t.id===id)).filter(Boolean);
+  const enUso = seleccionados.filter(t=>DB.empleados.some(e=>e.tipo_renuncia_id===t.id));
+  if(enUso.length>0){ toast(`No se puede eliminar: ya se usó en alguna baja: ${enUso.map(t=>t.nombre).join(', ')}`,'err'); return; }
+  if(!confirm(`¿Eliminar ${seleccionados.length>1?seleccionados.length+' tipos':seleccionados[0].nombre}?`)) return;
+  DB.tipos_renuncia = DB.tipos_renuncia.filter(t=>!ids.includes(t.id));
+  ids.forEach(id=>TIPO_RENUNCIA_SELECCIONADOS.delete(id));
+  try{ await saveTiposRenuncia(`Elimina ${ids.length} tipo(s) de renuncia`); toast('Eliminado(s) ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderTiposRenuncia();
+}
+
+function openTipoRenunciaForm(id){
+  const t = id ? DB.tipos_renuncia.find(x=>x.id===id) : null;
+  document.getElementById('modalBody').innerHTML = `
+    <h3>${t?'Editar tipo de renuncia':'Nuevo tipo de renuncia'}</h3>
+    <div class="form-grid">
+      <div class="full"><label>Nombre</label><input id="tr_nombre" value="${t?.nombre||''}" placeholder="Renuncia voluntaria, Despido, Fin de contrato..."></div>
+      <div class="full"><label class="check-row"><input type="checkbox" id="tr_activo" ${t && t.activo==='false' ? '' : 'checked'}> Activo</label></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitTipoRenunciaForm('${id||''}')">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitTipoRenunciaForm(id){
+  const rec = { id: id || uid(), nombre: val('tr_nombre'), activo: document.getElementById('tr_activo').checked ? 'true' : 'false' };
+  if(!rec.nombre){ toast('El nombre del tipo es obligatorio','err'); return; }
+  const idx = DB.tipos_renuncia.findIndex(x=>x.id===id);
+  if(idx>=0) DB.tipos_renuncia[idx] = rec; else DB.tipos_renuncia.push(rec);
+  closeModal();
+  try{ await saveTiposRenuncia(idx>=0?`Actualiza tipo de renuncia ${rec.nombre}`:`Agrega tipo de renuncia ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderTiposRenuncia();
+}
+
 /* ============ INCAPACIDADES ============ */
 const INCAP_SELECCIONADOS = new Set();
 function obtenerIncapacidadesFiltradas(){
@@ -1997,11 +2109,12 @@ function renderRenuncias(){
   if(busqueda) rows = rows.filter(e=>`${e.nombre} ${e.apellido}`.toLowerCase().includes(busqueda));
   const wrap = document.getElementById('renunciasTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin bajas que mostrar.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Cuenta</th><th>Fecha de baja</th><th>Motivo</th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th>Nombre</th><th>Cuenta</th><th>Fecha de baja</th><th>Tipo de renuncia</th><th>Motivo</th></tr></thead><tbody>
   ${rows.map(e=>`<tr>
     <td><strong>${e.nombre} ${e.apellido}</strong></td>
     <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
     <td class="mono">${e.fecha_baja}</td>
+    <td>${nombreTipoRenuncia(e.tipo_renuncia_id)||'—'}</td>
     <td>${e.motivo_baja||'—'}</td>
   </tr>`).join('')}
   </tbody></table>`;
@@ -2113,6 +2226,7 @@ const COLUMNAS_RENUNCIAS = [
   { label:'Nombre', value: e => `${e.nombre} ${e.apellido}` },
   { label:'Cuenta', value: e => nombreCuenta(e.cuenta_id) || '' },
   { label:'Fecha de baja', value: e => e.fecha_baja||'' },
+  { label:'Tipo de renuncia', value: e => nombreTipoRenuncia(e.tipo_renuncia_id) || '' },
   { label:'Motivo', value: e => e.motivo_baja||'' }
 ];
 const COLUMNAS_AFPS = [
@@ -2124,6 +2238,10 @@ const COLUMNAS_INCAPACIDADES = [
   { label:'Fecha inicio', value: i => i.fecha_inicio||'' },
   { label:'Días', value: i => i.dias||'' },
   { label:'Motivo', value: i => i.motivo||'' }
+];
+const COLUMNAS_TIPOS_RENUNCIA = [
+  { label:'Nombre', value: t => t.nombre||'' },
+  { label:'Estado', value: t => t.activo!=='false' ? 'Activo' : 'Inactivo' }
 ];
 
 function accionExportar(seccion, tipo){
@@ -2143,6 +2261,7 @@ function accionExportar(seccion, tipo){
     columnas = COLUMNAS_RENUNCIAS; filename='renuncias'; titulo='Renuncias';
   } else if(seccion==='afps'){ rows = DB.afps.slice(); columnas = COLUMNAS_AFPS; filename='afps'; titulo='AFP'; }
   else if(seccion==='incapacidades'){ rows = obtenerIncapacidadesFiltradas(); columnas = COLUMNAS_INCAPACIDADES; filename='incapacidades'; titulo='Incapacidades'; }
+  else if(seccion==='tipos_renuncia'){ rows = DB.tipos_renuncia.slice(); columnas = COLUMNAS_TIPOS_RENUNCIA; filename='tipos_renuncia'; titulo='Tipos de renuncia'; }
   else return;
 
   if(rows.length===0){ toast('No hay filas para exportar con los filtros actuales','err'); return; }
@@ -2159,6 +2278,7 @@ function closeModal(){
   document.getElementById('modalBody').innerHTML='';
   EMP_SELECCIONADOS.clear(); CUENTA_SELECCIONADOS.clear(); SALA_SELECCIONADOS.clear();
   SUP_SELECCIONADOS.clear(); AFP_SELECCIONADOS.clear(); HERR_SELECCIONADOS.clear(); INCAP_SELECCIONADOS.clear();
+  TIPO_RENUNCIA_SELECCIONADOS.clear();
   refrescarPestanaActiva();
 }
 function refrescarPestanaActiva(){
@@ -2173,6 +2293,7 @@ function refrescarPestanaActiva(){
   else if(tab==='herramientas') renderHerramientas();
   else if(tab==='incapacidades') renderIncapacidades();
   else if(tab==='renuncias') renderRenuncias();
+  else if(tab==='tipos_renuncia') renderTiposRenuncia();
 }
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
 </script>
