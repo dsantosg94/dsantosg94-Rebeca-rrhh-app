@@ -909,6 +909,8 @@ function accionEmpSeleccion(accion){
   if(ids.length===0){ toast('Selecciona al menos un empleado primero','err'); return; }
   if(accion==='editar'){
     if(ids.length>1){ toast('Selecciona solo un empleado para editar','err'); return; }
+    const emp = DB.empleados.find(e=>e.id===ids[0]);
+    if(emp && emp.fecha_baja){ toast('Este empleado está dado de baja y no se puede modificar. Crea uno nuevo si vuelve a trabajar contigo.','err'); return; }
     openEmpForm(ids[0]);
   } else if(accion==='baja'){
     darDeBajaMultiple(ids);
@@ -930,14 +932,14 @@ async function darDeBajaMultiple(ids){
   }
   const nombres = empleadosSel.map(e=>e.nombre+' '+e.apellido).join(', ');
   const tiposActivos = DB.tipos_renuncia.filter(t=>t.activo!=='false');
-  const optsTipo = tiposActivos.map(t=>`<option value="${t.id}">${t.nombre}</option>`).join('');
+  const opcionesTipo = tiposActivos.map(t=>({ id:t.id, label:t.nombre }));
   document.getElementById('modalBody').innerHTML = `
     <h3>Dar de baja a ${empleadosSel.length>1 ? empleadosSel.length+' empleados' : nombres}</h3>
     ${empleadosSel.length>1 ? `<div class="sub" style="margin-bottom:12px;">${nombres}</div>` : ''}
     <div class="form-grid">
       <div class="full"><label>Fecha de baja</label><input id="b_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
-      <div class="full"><label>Tipo de renuncia</label>
-        <select id="b_tipo"><option value="">Sin especificar</option>${optsTipo}</select>
+      <div class="full"><label>Tipo de renuncia (obligatorio)</label>
+        ${comboHTML('b_tipo', opcionesTipo, '', '', 'Buscar tipo...')}
         ${tiposActivos.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes tipos creados — ve a "Renuncias → Tipos de renuncia" y agrega el primero.</div>' : ''}
       </div>
       <div class="full"><label>Motivo (opcional)</label><input id="b_motivo" placeholder="Detalle adicional..."></div>
@@ -951,7 +953,8 @@ async function darDeBajaMultiple(ids){
 
 async function confirmarBajaMultiple(ids){
   const fecha = val('b_fecha') || new Date().toISOString().slice(0,10);
-  const tipoRenunciaId = val('b_tipo');
+  const tipoRenunciaId = comboValor('b_tipo');
+  if(!tipoRenunciaId){ toast('Elige un tipo de renuncia de la lista','err'); return; }
   const motivo = val('b_motivo');
   ids.forEach(id=>{
     const e = DB.empleados.find(x=>x.id===id);
