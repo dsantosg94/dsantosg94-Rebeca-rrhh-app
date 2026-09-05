@@ -1029,7 +1029,11 @@ function openEmpForm(id){
         <label>Fecha de vencimiento de la visa</label><input id="m_visa_vencimiento" type="date" value="${e?.visa_vencimiento||''}">
       </div>
       <div class="full" style="margin-top:6px;">
-        <label class="check-row"><input type="checkbox" id="m_activo" ${e && e.activo==='false' ? '' : 'checked'}> Activo</label>
+        ${e?.fecha_baja
+          ? `<div class="sub" style="background:#FBEAE8;color:var(--red);padding:10px 12px;border-radius:8px;">Este empleado fue dado de baja el ${e.fecha_baja}${nombreTipoRenuncia(e.tipo_renuncia_id) ? ' ('+nombreTipoRenuncia(e.tipo_renuncia_id)+')' : ''}. No se puede reactivar — si vuelve a trabajar contigo, crea un empleado nuevo para no perder el historial.</div>
+             <input type="hidden" id="m_activo_valor" value="false">`
+          : `<label class="check-row"><input type="checkbox" id="m_activo" ${e && e.activo==='false' ? '' : 'checked'}> Activo</label>`
+        }
       </div>
     </div>
     <div class="form-actions">
@@ -1045,6 +1049,7 @@ async function submitEmpForm(id){
   const sala = DB.salas.find(s=>s.id===salaId);
   // Si la sala elegida no pertenece a la cuenta elegida (o ya no hay cuenta), no la guardamos suelta
   const salaValida = sala && sala.cuenta_id===cuentaId ? salaId : '';
+  const checkboxActivo = document.getElementById('m_activo');
   const rec = {
     id: id || uid(),
     nombre: val('m_nombre'), apellido: val('m_apellido'), direccion: val('m_direccion'),
@@ -1059,19 +1064,23 @@ async function submitEmpForm(id){
     carne_srs: val('m_carne_srs'), carne_empleado: val('m_carne_empleado'),
     tiene_visa: document.getElementById('m_tiene_visa').checked ? 'true' : 'false',
     visa_vencimiento: document.getElementById('m_tiene_visa').checked ? val('m_visa_vencimiento') : '',
-    activo: document.getElementById('m_activo').checked ? 'true' : 'false'
+    activo: checkboxActivo ? (checkboxActivo.checked ? 'true' : 'false') : 'false'
   };
   const existente = DB.empleados.find(x=>x.id===id);
-  if(existente){
-    if(rec.activo==='true'){
-      // Se está reactivando: si tenía una baja registrada, se limpia para que ya no aparezca "De baja"
-      rec.fecha_baja=''; rec.motivo_baja=''; rec.tipo_renuncia_id='';
-    } else {
-      rec.fecha_baja = existente.fecha_baja||''; rec.motivo_baja = existente.motivo_baja||''; rec.tipo_renuncia_id = existente.tipo_renuncia_id||'';
-    }
+  if(existente && existente.fecha_baja){
+    // Una vez dado de baja, el registro no se puede reactivar (se preserva para auditoría).
+    // Si la persona vuelve a trabajar, se crea un empleado nuevo.
+    rec.activo = 'false';
+    rec.fecha_baja = existente.fecha_baja;
+    rec.motivo_baja = existente.motivo_baja||'';
+    rec.tipo_renuncia_id = existente.tipo_renuncia_id||'';
     rec.es_supervisor = existente.es_supervisor||'false';
+  } else if(existente){
+    rec.fecha_baja=''; rec.motivo_baja=''; rec.tipo_renuncia_id='';
+    rec.es_supervisor = existente.es_supervisor||'false';
+  } else{
+    rec.fecha_baja=''; rec.motivo_baja=''; rec.tipo_renuncia_id='';
   }
-  else{ rec.fecha_baja=''; rec.motivo_baja=''; rec.tipo_renuncia_id=''; }
   if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
   const idx = DB.empleados.findIndex(x=>x.id===id);
   if(idx>=0) DB.empleados[idx] = rec; else DB.empleados.push(rec);
