@@ -869,7 +869,7 @@ function renderEmpleados(){
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; actualizarBarraEmp(); return; }
   const todosMarcados = rows.length>0 && rows.every(e=>EMP_SELECCIONADOS.has(e.id));
   wrap.innerHTML = `<table><thead><tr>
-    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Seguro Social</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th>
+    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Seguro Social</th><th>Carné SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
@@ -880,6 +880,7 @@ function renderEmpleados(){
       <td>${supervisorDeSala(e.sala_id)||'—'}</td>
       <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
       <td class="mono">${e.seguro_social||'—'}</td>
+      <td class="mono">${e.carne_srs||'—'}</td>
       <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
       <td>${pillVisa(e)}</td>
@@ -1633,11 +1634,12 @@ function renderSalas(){
   const wrap = document.getElementById('salasTableWrap');
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin salas de venta que mostrar.</div>'; actualizarBarraSala(); return; }
   const todosMarcados = rows.length>0 && rows.every(s=>SALA_SELECCIONADOS.has(s.id));
-  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosSala(this.checked)"></th><th>Sala</th><th>Cuenta</th><th>Estado</th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosSala(this.checked)"></th><th>Sala</th><th>Cuenta</th><th>Supervisor</th><th>Estado</th></tr></thead><tbody>
   ${rows.map(s=>`<tr>
     <td class="col-actions"><input type="checkbox" ${SALA_SELECCIONADOS.has(s.id)?'checked':''} onchange="toggleSalaSeleccion('${s.id}', this.checked)"></td>
     <td><strong>${s.nombre}</strong></td>
     <td>${nombreCuenta(s.cuenta_id)||'—'}</td>
+    <td>${supervisorDeSala(s.id)||'—'}</td>
     <td>${s.activa!=='false' ? '<span class="pill pill-green">Activa</span>' : '<span class="pill pill-red">Inactiva</span>'}</td>
   </tr>`).join('')}
   </tbody></table>`;
@@ -2225,6 +2227,7 @@ const COLUMNAS_CUENTAS = [
 const COLUMNAS_SALAS = [
   { label:'Sala', value: s => s.nombre||'' },
   { label:'Cuenta', value: s => nombreCuenta(s.cuenta_id) || '' },
+  { label:'Supervisor', value: s => supervisorDeSala(s.id) || '' },
   { label:'Estado', value: s => s.activa!=='false' ? 'Activa' : 'Inactiva' }
 ];
 const COLUMNAS_SUPERVISORES = [
