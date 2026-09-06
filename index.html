@@ -630,7 +630,7 @@ const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
 const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv', viaticos:'data/viaticos.csv', registro_viaticos:'data/registro_viaticos.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss','viatico_id'];
+const EMP_H = ['id','nombre','apellido','direccion','telefono','codigo_pais','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss','viatico_id'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas','nota'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
@@ -641,6 +641,46 @@ const BANCO_H = ['id','nombre','activo'];
 const VIATICO_H = ['id','nombre','monto','activo'];
 const REG_VIA_H = ['id','empleado_id','viatico_id','fecha','monto','motivo'];
 const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const PAISES_TELEFONO = [
+  // Norteamérica
+  { nombre:'El Salvador', codigo:'503', digitos:8 },
+  { nombre:'Guatemala', codigo:'502', digitos:8 },
+  { nombre:'Honduras', codigo:'504', digitos:8 },
+  { nombre:'Nicaragua', codigo:'505', digitos:8 },
+  { nombre:'Costa Rica', codigo:'506', digitos:8 },
+  { nombre:'Panamá', codigo:'507', digitos:8 },
+  { nombre:'Belice', codigo:'501', digitos:7 },
+  { nombre:'México', codigo:'52', digitos:10 },
+  { nombre:'Estados Unidos', codigo:'1', digitos:10 },
+  { nombre:'Canadá', codigo:'1', digitos:10 },
+  // Caribe
+  { nombre:'Cuba', codigo:'53', digitos:8 },
+  { nombre:'República Dominicana', codigo:'1', digitos:10 },
+  { nombre:'Haití', codigo:'509', digitos:8 },
+  { nombre:'Jamaica', codigo:'1', digitos:10 },
+  { nombre:'Bahamas', codigo:'1', digitos:10 },
+  { nombre:'Trinidad y Tobago', codigo:'1', digitos:10 },
+  { nombre:'Barbados', codigo:'1', digitos:10 },
+  { nombre:'Granada', codigo:'1', digitos:10 },
+  { nombre:'Dominica', codigo:'1', digitos:10 },
+  { nombre:'Santa Lucía', codigo:'1', digitos:10 },
+  { nombre:'San Vicente y las Granadinas', codigo:'1', digitos:10 },
+  { nombre:'San Cristóbal y Nieves', codigo:'1', digitos:10 },
+  { nombre:'Antigua y Barbuda', codigo:'1', digitos:10 },
+  // Sudamérica
+  { nombre:'Colombia', codigo:'57', digitos:10 },
+  { nombre:'Venezuela', codigo:'58', digitos:10 },
+  { nombre:'Ecuador', codigo:'593', digitos:9 },
+  { nombre:'Perú', codigo:'51', digitos:9 },
+  { nombre:'Brasil', codigo:'55', digitos:11 },
+  { nombre:'Bolivia', codigo:'591', digitos:8 },
+  { nombre:'Paraguay', codigo:'595', digitos:9 },
+  { nombre:'Chile', codigo:'56', digitos:9 },
+  { nombre:'Argentina', codigo:'54', digitos:10 },
+  { nombre:'Uruguay', codigo:'598', digitos:8 },
+  { nombre:'Guyana', codigo:'592', digitos:7 },
+  { nombre:'Surinam', codigo:'597', digitos:7 }
+];
 function generarHorasDia(){
   const horas=[];
   for(let h=0; h<24; h++){
@@ -1073,7 +1113,7 @@ const TABLA_EMP_COLUMNAS = [
   { key:'cuenta', label:'Cuenta', render: e => `<td>${nombreCuenta(e.cuenta_id)||'—'}</td>` },
   { key:'sala', label:'Sala de venta', render: e => `<td>${nombreSala(e.sala_id)||'—'}</td>` },
   { key:'supervisor', label:'Supervisor', render: e => `<td>${supervisorDeSala(e.sala_id)||'—'}</td>` },
-  { key:'contacto', label:'Contacto', render: e => `<td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>` },
+  { key:'contacto', label:'Contacto', render: e => `<td class="mono" style="font-size:12px;">${e.codigo_pais?'+'+e.codigo_pais+' ':''}${e.telefono||''}<br>${e.correo||''}</td>` },
   { key:'departamento', label:'Departamento', render: e => `<td>${e.departamento||'—'}</td>` },
   { key:'municipio', label:'Municipio', render: e => `<td>${e.municipio||'—'}</td>` },
   { key:'fecha_ingreso', label:'Fecha ingreso', render: e => `<td class="mono">${e.fecha_ingreso||'—'}</td>` },
@@ -1224,6 +1264,14 @@ function actualizarMunicipios(departamento){
   if(sel) sel.innerHTML = '<option value="">Selecciona...</option>' + municipios.map(m=>`<option value="${m}">${m}</option>`).join('');
 }
 
+function actualizarLongitudTelefono(codigoPais){
+  const pais = PAISES_TELEFONO.find(p=>p.codigo===codigoPais) || PAISES_TELEFONO[0];
+  const label = document.getElementById('m_telefonoLabel');
+  const input = document.getElementById('m_telefono');
+  if(label) label.textContent = `Teléfono (${pais.digitos} dígitos) *`;
+  if(input){ input.maxLength = pais.digitos; input.value = input.value.replace(/\D/g,'').slice(0, pais.digitos); }
+}
+
 function actualizarSalasPorCuenta(cuentaId, mantenerSeleccion){
   const salas = DB.salas.filter(s=>s.cuenta_id===cuentaId && s.activa!=='false');
   COMBO_DATA['m_sala'] = salas.map(s=>({ id:s.id, label:s.nombre }));
@@ -1277,7 +1325,8 @@ function openEmpForm(id){
       <div class="full"><label>Dirección</label><input id="m_direccion" value="${e?.direccion||''}"></div>
       <div><label>Departamento *</label><select id="m_departamento" onchange="actualizarMunicipios(this.value)"><option value="">Selecciona...</option>${optsDepartamento}</select></div>
       <div><label>Municipio *</label><select id="m_municipio"><option value="">Selecciona...</option>${optsMunicipio}</select></div>
-      <div><label>Teléfono (8 dígitos) *</label><input id="m_telefono" value="${e?.telefono||''}" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,8)"></div>
+      <div><label>País</label><select id="m_pais" onchange="actualizarLongitudTelefono(this.value)">${PAISES_TELEFONO.map(p=>`<option value="${p.codigo}" data-digitos="${p.digitos}" ${(e?.codigo_pais||'503')===p.codigo?'selected':''}>${p.nombre} (+${p.codigo})</option>`).join('')}</select></div>
+      <div><label id="m_telefonoLabel">Teléfono (${(PAISES_TELEFONO.find(p=>p.codigo===(e?.codigo_pais||'503'))||PAISES_TELEFONO[0]).digitos} dígitos) *</label><input id="m_telefono" value="${e?.telefono||''}" maxlength="${(PAISES_TELEFONO.find(p=>p.codigo===(e?.codigo_pais||'503'))||PAISES_TELEFONO[0]).digitos}" inputmode="numeric" oninput="const d=document.getElementById('m_pais').selectedOptions[0].dataset.digitos; this.value=this.value.replace(/\D/g,'').slice(0,d)"></div>
       <div><label>Correo</label><input id="m_correo" value="${e?.correo||''}"></div>
       <div><label>Fecha de nacimiento *</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
       <div><label>Fecha de ingreso *</label><input id="m_fingreso" type="date" value="${e?.fecha_ingreso||''}"></div>
@@ -1346,15 +1395,17 @@ async function submitEmpForm(id){
   const diasTrabajo = [...document.querySelectorAll('.m_dia_trabajo:checked')].map(el=>el.value).join(',');
   const diasDescanso = [...document.querySelectorAll('.m_dia_descanso:checked')].map(el=>el.value).join(',');
   const telefono = val('m_telefono');
+  const codigoPais = val('m_pais');
+  const paisInfo = PAISES_TELEFONO.find(p=>p.codigo===codigoPais) || PAISES_TELEFONO[0];
   const dui = val('m_dui');
   const isss = val('m_isss');
-  if(telefono && telefono.length!==8){ toast('El teléfono debe tener exactamente 8 dígitos','err'); return; }
+  if(telefono && telefono.length!==paisInfo.digitos){ toast(`El teléfono de ${paisInfo.nombre} debe tener exactamente ${paisInfo.digitos} dígitos`,'err'); return; }
   if(dui && dui.length!==9){ toast('El DUI debe tener exactamente 9 dígitos','err'); return; }
   if(isss && isss.length!==9){ toast('El número de ISSS debe tener exactamente 9 dígitos','err'); return; }
   const rec = {
     id: id || uid(),
     nombre: val('m_nombre'), apellido: val('m_apellido'), direccion: val('m_direccion'),
-    telefono, correo: val('m_correo'),
+    telefono, codigo_pais: codigoPais, correo: val('m_correo'),
     fecha_nacimiento: val('m_fnac'),
     fecha_ingreso: val('m_fingreso'),
     departamento: val('m_departamento'), municipio: val('m_municipio'),
@@ -1401,6 +1452,10 @@ async function submitEmpForm(id){
   const yaExiste = (campo, etiqueta) => {
     const valor = rec[campo];
     if(!valor) return null;
+    if(campo==='telefono'){
+      const dup = DB.empleados.find(x=>x.id!==rec.id && x.telefono===valor && (x.codigo_pais||'503')===(rec.codigo_pais||'503'));
+      return dup ? `Ya existe ${dup.nombre} ${dup.apellido} con ese ${etiqueta} (+${rec.codigo_pais} ${valor})` : null;
+    }
     const dup = DB.empleados.find(x=>x.id!==rec.id && x[campo]===valor);
     return dup ? `Ya existe ${dup.nombre} ${dup.apellido} con ese ${etiqueta} (${valor})` : null;
   };
@@ -1654,8 +1709,14 @@ async function sincronizarGoogleForm(){
       if(!ts){ sinFecha++; return; }
 
       const telefonoCrudo = String(r[cols.telCol]||'').replace(/\D/g,'');
-      const telefono8 = telefonoCrudo.slice(-8); // últimos 8 dígitos, sin importar código de país
-      const emp = DB.empleados.find(e => e.telefono === telefono8);
+      const emp = DB.empleados.find(e=>{
+        if(e.codigo_pais){
+          const completo = e.codigo_pais + e.telefono;
+          return telefonoCrudo === completo || telefonoCrudo.endsWith(completo);
+        }
+        // Empleados sin país definido todavía (datos antiguos): compara los últimos 8 dígitos
+        return telefonoCrudo.slice(-8) === (e.telefono||'').slice(-8);
+      });
       if(!emp){ sinCoincidencia.add(telefonoCrudo || '(vacío)'); return; }
 
       const mensaje = String(r[cols.msgCol]||'').trim();
@@ -2827,7 +2888,7 @@ const COLUMNAS_EMPLEADOS = [
   { key:'cuenta', label:'Cuenta', value: e => nombreCuenta(e.cuenta_id) || '' },
   { key:'sala', label:'Sala de venta', value: e => nombreSala(e.sala_id) || '' },
   { key:'supervisor', label:'Supervisor', value: e => supervisorDeSala(e.sala_id) || '' },
-  { key:'contacto', label:'Teléfono', value: e => e.telefono||'' },
+  { key:'contacto', label:'Teléfono', value: e => (e.codigo_pais?'+'+e.codigo_pais+' ':'')+(e.telefono||'') },
   { key:'contacto', label:'Correo', value: e => e.correo||'' },
   { label:'Dirección', value: e => e.direccion||'' },
   { key:'departamento', label:'Departamento', value: e => e.departamento||'' },
