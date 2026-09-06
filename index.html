@@ -185,6 +185,7 @@
       <div class="nav-item nav-sub" data-tab="salas" onclick="switchTab('salas')">↳ Salas de venta</div>
       <div class="nav-item" data-tab="supervisores" onclick="switchTab('supervisores')">🧑‍💼 Supervisores</div>
       <div class="nav-item" data-tab="afps" onclick="switchTab('afps')">🏦 AFP</div>
+      <div class="nav-item" data-tab="bancos" onclick="switchTab('bancos')">💳 Bancos</div>
       <div class="nav-item" data-tab="herramientas" onclick="switchTab('herramientas')">🧰 Herramientas</div>
       <div class="nav-item" data-tab="asistencia" onclick="switchTab('asistencia')">🎟️ Asistencia</div>
       <div class="nav-item" data-tab="incapacidades" onclick="switchTab('incapacidades')">🩹 Incapacidades</div>
@@ -341,6 +342,31 @@
             <span class="sub" id="afpSeleccionInfo">Ninguna AFP seleccionada</span>
           </div>
           <div id="afpsTableWrap" class="table-scroll"></div>
+        </div>
+      </div>
+
+      <!-- BANCOS -->
+      <div class="tab-section" id="tab-bancos">
+        <div class="topbar">
+          <div><h2>Bancos</h2><div class="sub">Entidades bancarias disponibles para el número de cuenta de cada empleado</div></div>
+          <button class="btn btn-add" onclick="openBancoForm()">+ Nuevo banco</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div></div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('bancos','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('bancos','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('bancos','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('bancos','pdf')">PDF</button>
+            </div>
+          </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionBancoSeleccion('editar')">Editar</button>
+            <button class="btn btn-danger" onclick="accionBancoSeleccion('eliminar')">Eliminar</button>
+            <span class="sub" id="bancoSeleccionInfo">Ningún banco seleccionado</span>
+          </div>
+          <div id="bancosTableWrap" class="table-scroll"></div>
         </div>
       </div>
 
@@ -518,21 +544,49 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
 const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
-const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado','seguro_social','afp_id','tiene_visa','visa_vencimiento','tipo_renuncia_id'];
+const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv' };
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado','seguro_social','afp_id','tiene_visa','visa_vencimiento','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
 const SUP_H = ['id','nombre','apellido','telefono','correo','sala_id','cuenta_id'];
 const SALA_H = ['id','nombre','cuenta_id','activa'];
 const AFP_H = ['id','nombre','activa'];
+const BANCO_H = ['id','nombre','activo'];
+const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+function generarHorasDia(){
+  const horas=[];
+  for(let h=0; h<24; h++){
+    for(let m=0; m<60; m+=30){
+      horas.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
+    }
+  }
+  return horas;
+}
+const HORAS_DIA = generarHorasDia();
+const DEPARTAMENTOS_SV = {
+  'Ahuachapán': ['Ahuachapán','Apaneca','Atiquizaya','Concepción de Ataco','El Refugio','Guaymango','Jujutla','San Francisco Menéndez','San Lorenzo','San Pedro Puxtla','Tacuba','Turín'],
+  'Santa Ana': ['Candelaria de la Frontera','Coatepeque','Chalchuapa','El Congo','El Porvenir','Masahuat','Metapán','San Antonio Pajonal','San Sebastián Salitrillo','Santa Ana','Santa Rosa Guachipilín','Santiago de la Frontera','Texistepeque'],
+  'Sonsonate': ['Acajutla','Armenia','Caluco','Cuisnahuat','Izalco','Juayúa','Nahuizalco','Nahulingo','Salcoatitán','San Antonio del Monte','San Julián','Santa Catarina Masahuat','Santa Isabel Ishuatán','Santo Domingo de Guzmán','Sonsonate','Sonzacate'],
+  'Chalatenango': ['Agua Caliente','Arcatao','Azacualpa','Citalá','Comalapa','Concepción Quezaltepeque','Chalatenango','Dulce Nombre de María','El Carrizal','El Paraíso','La Laguna','La Palma','La Reina','Las Flores','Las Vueltas','Nombre de Jesús','Nueva Concepción','Nueva Trinidad','Ojos de Agua','Potonico','San Antonio de la Cruz','San Antonio Los Ranchos','San Fernando','San Francisco Lempa','San Francisco Morazán','San Ignacio','San Isidro Labrador','San José Cancasque','San José Las Flores','San Luis del Carmen','San Miguel de Mercedes','San Rafael','Santa Rita','Tejutla'],
+  'La Libertad': ['Antiguo Cuscatlán','Chiltiupán','Ciudad Arce','Colón','Comasagua','Huizúcar','Jayaque','Jicalapa','La Libertad','Nuevo Cuscatlán','Quezaltepeque','Sacacoyo','San José Villanueva','San Juan Opico','San Matías','San Pablo Tacachico','Santa Tecla','Talnique','Tamanique','Teotepeque','Tepecoyo','Zaragoza'],
+  'San Salvador': ['Aguilares','Apopa','Ayutuxtepeque','Cuscatancingo','Ciudad Delgado','El Paisnal','Guazapa','Ilopango','Mejicanos','Nejapa','Panchimalco','Rosario de Mora','San Marcos','San Martín','San Salvador','Santiago Texacuangos','Santo Tomás','Soyapango','Tonacatepeque'],
+  'Cuscatlán': ['Candelaria','Cojutepeque','El Carmen','El Rosario','Monte San Juan','Oratorio de Concepción','San Bartolomé Perulapía','San Cristóbal','San José Guayabal','San Pedro Perulapán','San Rafael Cedros','San Ramón','Santa Cruz Analquito','Santa Cruz Michapa','Suchitoto','Tenancingo'],
+  'La Paz': ['Cuyultitán','El Rosario','Jerusalén','Mercedes La Ceiba','Olocuilta','Paraíso de Osorio','San Antonio Masahuat','San Emigdio','San Francisco Chinameca','San Juan Nonualco','San Juan Talpa','San Juan Tepezontes','San Luis La Herradura','San Luis Talpa','San Miguel Tepezontes','San Pedro Masahuat','San Pedro Nonualco','San Rafael Obrajuelo','Santa María Ostuma','Santiago Nonualco','Tapalhuaca','Zacatecoluca'],
+  'Cabañas': ['Cinquera','Dolores','Guacotecti','Ilobasco','Jutiapa','San Isidro','Sensuntepeque','Tejutepeque','Victoria'],
+  'San Vicente': ['Apastepeque','Guadalupe','San Cayetano Istepeque','San Esteban Catarina','San Ildefonso','San Lorenzo','San Sebastián','San Vicente','Santa Clara','Santo Domingo','Tecoluca','Tepetitán','Verapaz'],
+  'Usulután': ['Alegría','Berlín','California','Concepción Batres','El Triunfo','Ereguayquín','Estanzuelas','Jiquilisco','Jucuapa','Jucuarán','Mercedes Umaña','Nueva Granada','Ozatlán','Puerto El Triunfo','San Agustín','San Buenaventura','San Dionisio','San Francisco Javier','Santa Elena','Santa María','Santiago de María','Tecapán','Usulután'],
+  'San Miguel': ['Carolina','Chapeltique','Chinameca','Chirilagua','Ciudad Barrios','Comacarán','El Tránsito','Lolotique','Moncagua','Nueva Guadalupe','Nuevo Edén de San Juan','Quelepa','San Antonio del Mosco','San Gerardo','San Jorge','San Luis de la Reina','San Miguel','San Rafael Oriente','Sesori','Uluazapa'],
+  'Morazán': ['Arambala','Cacaopera','Corinto','Chilanga','Delicias de Concepción','El Divisadero','El Rosario','Gualococti','Guatajiagua','Joateca','Jocoaitique','Jocoro','Lolotiquillo','Meanguera','Osicala','Perquín','San Carlos','San Fernando','San Francisco Gotera','San Isidro','San Simón','Sensembra','Sociedad','Torola','Yamabal','Yoloaiquín'],
+  'La Unión': ['Anamorós','Bolívar','Concepción de Oriente','Conchagua','El Carmen','El Sauce','Intipucá','La Unión','Lislique','Meanguera del Golfo','Nueva Esparta','Pasaquina','Polorós','San Alejo','San José','Santa Rosa de Lima','Yayantique','Yucuaiquín']
+};
 const INCAP_H = ['id','empleado_id','fecha_inicio','dias','motivo'];
 const TIPO_RENUNCIA_H = ['id','nombre','activo'];
 
 const TOKEN_KEY = 'rebeca_gh_token';
 let TOKEN = '';
-let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[], tipos_renuncia:[] };
-let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null, tipos_renuncia:null };
+let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[], tipos_renuncia:[], bancos:[] };
+let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null, tipos_renuncia:null, bancos:null };
 
 function storageAvailable(){
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; }
@@ -658,10 +712,11 @@ async function connect(silent){
   if(!t){ if(!silent){ errEl.textContent='Pega tu token primero.'; errEl.style.display='block'; } return; }
   TOKEN = t;
   try{
-    const [emp, herr, asis, cta, sup, sal, afp, inc, tr] = await Promise.all([
+    const [emp, herr, asis, cta, sup, sal, afp, inc, tr, bco] = await Promise.all([
       ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia),
       ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores), ghGetFileOpcional(FILES.salas),
-      ghGetFileOpcional(FILES.afps), ghGetFileOpcional(FILES.incapacidades), ghGetFileOpcional(FILES.tipos_renuncia)
+      ghGetFileOpcional(FILES.afps), ghGetFileOpcional(FILES.incapacidades), ghGetFileOpcional(FILES.tipos_renuncia),
+      ghGetFileOpcional(FILES.bancos)
     ]);
     DB.empleados = parseCSV(emp.text); SHA.empleados = emp.sha;
     DB.herramientas = parseCSV(herr.text); SHA.herramientas = herr.sha;
@@ -672,6 +727,7 @@ async function connect(silent){
     DB.afps = parseCSV(afp.text); SHA.afps = afp.sha;
     DB.incapacidades = parseCSV(inc.text); SHA.incapacidades = inc.sha;
     DB.tipos_renuncia = parseCSV(tr.text); SHA.tipos_renuncia = tr.sha;
+    DB.bancos = parseCSV(bco.text); SHA.bancos = bco.sha;
 
     const remember = document.getElementById('rememberToken').checked;
     if(remember && storageAvailable()){
@@ -681,7 +737,7 @@ async function connect(silent){
     document.getElementById('gate').style.display='none';
     document.getElementById('app').style.display='block';
     populateFilters();
-    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas(); renderAfps(); renderIncapacidades(); renderTiposRenuncia();
+    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas(); renderAfps(); renderIncapacidades(); renderTiposRenuncia(); renderBancos();
     try{
       const savedUrl = localStorage.getItem(GFORM_URL_KEY);
       if(savedUrl) document.getElementById('gformUrl').value = savedUrl;
@@ -724,6 +780,9 @@ async function saveIncapacidades(msg){
 }
 async function saveTiposRenuncia(msg){
   SHA.tipos_renuncia = await ghPutFile(FILES.tipos_renuncia, toCSV(TIPO_RENUNCIA_H, DB.tipos_renuncia), SHA.tipos_renuncia, msg);
+}
+async function saveBancos(msg){
+  SHA.bancos = await ghPutFile(FILES.bancos, toCSV(BANCO_H, DB.bancos), SHA.bancos, msg);
 }
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -968,6 +1027,12 @@ async function confirmarBajaMultiple(ids){
   renderEmpleados(); renderRenuncias();
 }
 
+function actualizarMunicipios(departamento){
+  const municipios = DEPARTAMENTOS_SV[departamento] || [];
+  const sel = document.getElementById('m_municipio');
+  if(sel) sel.innerHTML = '<option value="">Selecciona...</option>' + municipios.map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+
 function actualizarSalasPorCuenta(cuentaId, mantenerSeleccion){
   const salas = DB.salas.filter(s=>s.cuenta_id===cuentaId && s.activa!=='false');
   COMBO_DATA['m_sala'] = salas.map(s=>({ id:s.id, label:s.nombre }));
@@ -995,16 +1060,36 @@ function openEmpForm(id){
   const opcionesAfp = afpsActivas.map(a=>({ id:a.id, label:a.nombre }));
   const afpSel = e?.afp_id ? afpsActivas.find(a=>a.id===e.afp_id) : null;
 
+  const bancosActivos = DB.bancos.filter(b=>b.activo!=='false');
+  const opcionesBanco = bancosActivos.map(b=>({ id:b.id, label:b.nombre }));
+  const bancoSel = e?.banco_id ? bancosActivos.find(b=>b.id===e.banco_id) : null;
+
+  const optsDepartamento = Object.keys(DEPARTAMENTOS_SV).map(d=>`<option value="${d}" ${e?.departamento===d?'selected':''}>${d}</option>`).join('');
+  const municipiosIniciales = e?.departamento ? (DEPARTAMENTOS_SV[e.departamento]||[]) : [];
+  const optsMunicipio = municipiosIniciales.map(m=>`<option value="${m}" ${e?.municipio===m?'selected':''}>${m}</option>`).join('');
+  const optsHoras = HORAS_DIA.map(h=>`<option value="${h}">${h}</option>`).join('');
+  const diasTrabajo = (e?.dias_trabajo||'').split(',').filter(Boolean);
+  const diasDescanso = (e?.dias_descanso||'').split(',').filter(Boolean);
+  const checkboxesDias = (grupo, seleccionados) => DIAS_SEMANA.map(d=>
+    `<label class="check-row" style="margin-right:12px;display:inline-flex;"><input type="checkbox" class="${grupo}" value="${d}" ${seleccionados.includes(d)?'checked':''}> ${d}</label>`
+  ).join('');
+
   document.getElementById('modalBody').innerHTML = `
     <h3>${e?'Editar empleado':'Nuevo empleado'}</h3>
     <div class="form-grid">
       <div><label>Nombre</label><input id="m_nombre" value="${e?.nombre||''}"></div>
       <div><label>Apellido</label><input id="m_apellido" value="${e?.apellido||''}"></div>
       <div class="full"><label>Dirección</label><input id="m_direccion" value="${e?.direccion||''}"></div>
-      <div><label>Teléfono</label><input id="m_telefono" value="${e?.telefono||''}"></div>
+      <div><label>Departamento</label><select id="m_departamento" onchange="actualizarMunicipios(this.value)"><option value="">Selecciona...</option>${optsDepartamento}</select></div>
+      <div><label>Municipio</label><select id="m_municipio"><option value="">Selecciona...</option>${optsMunicipio}</select></div>
+      <div><label>Teléfono (8 dígitos)</label><input id="m_telefono" value="${e?.telefono||''}" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,8)"></div>
       <div><label>Correo</label><input id="m_correo" value="${e?.correo||''}"></div>
       <div><label>Edad</label><input id="m_edad" type="number" value="${e?.edad||''}"></div>
       <div><label>Fecha de nacimiento</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
+      <div><label>Fecha de ingreso</label><input id="m_fingreso" type="date" value="${e?.fecha_ingreso||''}"></div>
+      <div><label>DUI (9 dígitos)</label><input id="m_dui" value="${e?.dui||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,9)"></div>
+      <div><label>ISSS (9 dígitos)</label><input id="m_isss" value="${e?.isss||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,9)"></div>
+      <div><label>Carné SEMERC</label><input id="m_carne_semerc" value="${e?.carne_semerc||''}"></div>
       <div class="full"><label>Cuenta (opcional)</label>
         ${comboHTML('m_cuenta', opcionesCuenta, e?.cuenta_id||'', cuentaSel?.nombre||'', 'Buscar cuenta...', 'actualizarSalasPorCuenta')}
       </div>
@@ -1019,6 +1104,15 @@ function openEmpForm(id){
         </select>
       </div>
       <div><label id="m_tarifaLabel">${e?.tipo_pago==='fijo'?'Salario por día':'Tarifa por hora'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
+      <div><label>Hora de entrada</label><select id="m_hora_entrada"><option value="">Selecciona...</option>${optsHoras}</select></div>
+      <div><label>Hora de salida</label><select id="m_hora_salida"><option value="">Selecciona...</option>${optsHoras}</select></div>
+      <div class="full"><label>Días a trabajar</label><div>${checkboxesDias('m_dia_trabajo', diasTrabajo)}</div></div>
+      <div class="full"><label>Días de descanso</label><div>${checkboxesDias('m_dia_descanso', diasDescanso)}</div></div>
+      <div class="full"><label>Banco</label>
+        ${comboHTML('m_banco', opcionesBanco, e?.banco_id||'', bancoSel?.nombre||'', 'Buscar banco...')}
+        ${bancosActivos.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes bancos creados — ve a la pestaña "Bancos" y agrega el primero.</div>' : ''}
+      </div>
+      <div><label>Número de cuenta</label><input id="m_numero_cuenta" value="${e?.numero_cuenta||''}" inputmode="numeric" oninput="this.value=this.value.replace(/\\D/g,'')"></div>
       <div><label>Número de Seguro Social</label><input id="m_seguro_social" value="${e?.seguro_social||''}"></div>
       <div class="full"><label>AFP</label>
         ${comboHTML('m_afp', opcionesAfp, e?.afp_id||'', afpSel?.nombre||'', 'Buscar AFP...')}
@@ -1044,6 +1138,10 @@ function openEmpForm(id){
       <button class="btn" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-add" onclick="submitEmpForm('${id||''}')">Guardar</button>
     </div>`;
+  document.getElementById('m_departamento').value = e?.departamento || '';
+  document.getElementById('m_municipio').value = e?.municipio || '';
+  document.getElementById('m_hora_entrada').value = e?.hora_entrada || '';
+  document.getElementById('m_hora_salida').value = e?.hora_salida || '';
   document.getElementById('overlay').classList.add('show');
 }
 
@@ -1054,11 +1152,25 @@ async function submitEmpForm(id){
   // Si la sala elegida no pertenece a la cuenta elegida (o ya no hay cuenta), no la guardamos suelta
   const salaValida = sala && sala.cuenta_id===cuentaId ? salaId : '';
   const checkboxActivo = document.getElementById('m_activo');
+  const diasTrabajo = [...document.querySelectorAll('.m_dia_trabajo:checked')].map(el=>el.value).join(',');
+  const diasDescanso = [...document.querySelectorAll('.m_dia_descanso:checked')].map(el=>el.value).join(',');
+  const telefono = val('m_telefono');
+  const dui = val('m_dui');
+  const isss = val('m_isss');
+  if(telefono && telefono.length!==8){ toast('El teléfono debe tener exactamente 8 dígitos','err'); return; }
+  if(dui && dui.length!==9){ toast('El DUI debe tener exactamente 9 dígitos','err'); return; }
+  if(isss && isss.length!==9){ toast('El número de ISSS debe tener exactamente 9 dígitos','err'); return; }
   const rec = {
     id: id || uid(),
     nombre: val('m_nombre'), apellido: val('m_apellido'), direccion: val('m_direccion'),
-    telefono: val('m_telefono'), correo: val('m_correo'), edad: val('m_edad'),
+    telefono, correo: val('m_correo'), edad: val('m_edad'),
     fecha_nacimiento: val('m_fnac'),
+    fecha_ingreso: val('m_fingreso'),
+    departamento: val('m_departamento'), municipio: val('m_municipio'),
+    dui, isss, carne_semerc: val('m_carne_semerc'),
+    hora_entrada: val('m_hora_entrada'), hora_salida: val('m_hora_salida'),
+    dias_trabajo: diasTrabajo, dias_descanso: diasDescanso,
+    banco_id: comboValor('m_banco'), numero_cuenta: val('m_numero_cuenta'),
     sala_id: salaValida,
     cuenta_id: cuentaId,
     empresa_cliente: nombreCuenta(cuentaId),
@@ -1840,6 +1952,80 @@ async function submitAfpForm(id){
   renderAfps();
 }
 
+/* ============ BANCOS ============ */
+function nombreBanco(id){
+  const b = DB.bancos.find(x=>x.id===id);
+  return b ? b.nombre : '';
+}
+const BANCO_SELECCIONADOS = new Set();
+function renderBancos(){
+  const wrap = document.getElementById('bancosTableWrap');
+  if(DB.bancos.length===0){ wrap.innerHTML='<div class="empty-state">Sin bancos todavía. Agrega el primero con "+ Nuevo banco".</div>'; actualizarBarraBanco(); return; }
+  const todosMarcados = DB.bancos.every(b=>BANCO_SELECCIONADOS.has(b.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosBanco(this.checked)"></th><th>Nombre</th><th>Estado</th></tr></thead><tbody>
+  ${DB.bancos.map(b=>`<tr>
+    <td class="col-actions"><input type="checkbox" ${BANCO_SELECCIONADOS.has(b.id)?'checked':''} onchange="toggleBancoSeleccion('${b.id}', this.checked)"></td>
+    <td><strong>${b.nombre}</strong></td>
+    <td>${b.activo!=='false' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>'}</td>
+  </tr>`).join('')}
+  </tbody></table>`;
+  actualizarBarraBanco();
+}
+function toggleBancoSeleccion(id, checked){ checked ? BANCO_SELECCIONADOS.add(id) : BANCO_SELECCIONADOS.delete(id); actualizarBarraBanco(); }
+function toggleTodosBanco(checked){ DB.bancos.forEach(b => checked ? BANCO_SELECCIONADOS.add(b.id) : BANCO_SELECCIONADOS.delete(b.id)); renderBancos(); }
+function actualizarBarraBanco(){
+  const info = document.getElementById('bancoSeleccionInfo'); if(!info) return;
+  const n = BANCO_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ningún banco seleccionado' : (n===1 ? '1 banco seleccionado' : `${n} bancos seleccionados`);
+}
+function accionBancoSeleccion(accion){
+  const ids = [...BANCO_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos un banco primero','err'); return; }
+  if(accion==='editar'){
+    if(ids.length>1){ toast('Selecciona solo un banco para editar','err'); return; }
+    openBancoForm(ids[0]);
+  } else if(accion==='eliminar'){
+    eliminarBancosMultiple(ids);
+  }
+}
+async function eliminarBancosMultiple(ids){
+  const seleccionados = ids.map(id=>DB.bancos.find(b=>b.id===id)).filter(Boolean);
+  const enUso = seleccionados.filter(b=>DB.empleados.some(e=>e.banco_id===b.id));
+  if(enUso.length>0){ toast(`No se puede eliminar: hay empleados con cuenta en: ${enUso.map(b=>b.nombre).join(', ')}`,'err'); return; }
+  if(!confirm(`¿Eliminar ${seleccionados.length>1?seleccionados.length+' bancos':seleccionados[0].nombre}?`)) return;
+  DB.bancos = DB.bancos.filter(b=>!ids.includes(b.id));
+  ids.forEach(id=>BANCO_SELECCIONADOS.delete(id));
+  try{ await saveBancos(`Elimina ${ids.length} banco(s)`); toast('Eliminado(s) ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderBancos();
+}
+
+function openBancoForm(id){
+  const b = id ? DB.bancos.find(x=>x.id===id) : null;
+  document.getElementById('modalBody').innerHTML = `
+    <h3>${b?'Editar banco':'Nuevo banco'}</h3>
+    <div class="form-grid">
+      <div class="full"><label>Nombre</label><input id="bco_nombre" value="${b?.nombre||''}" placeholder="Banco Agrícola, Banco Cuscatlán..."></div>
+      <div class="full"><label class="check-row"><input type="checkbox" id="bco_activo" ${b && b.activo==='false' ? '' : 'checked'}> Activo</label></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitBancoForm('${id||''}')">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitBancoForm(id){
+  const rec = { id: id || uid(), nombre: val('bco_nombre'), activo: document.getElementById('bco_activo').checked ? 'true' : 'false' };
+  if(!rec.nombre){ toast('El nombre del banco es obligatorio','err'); return; }
+  const idx = DB.bancos.findIndex(x=>x.id===id);
+  if(idx>=0) DB.bancos[idx] = rec; else DB.bancos.push(rec);
+  closeModal();
+  try{ await saveBancos(idx>=0?`Actualiza banco ${rec.nombre}`:`Agrega banco ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderBancos();
+}
+
 /* ============ TIPOS DE RENUNCIA ============ */
 function nombreTipoRenuncia(id){
   const t = DB.tipos_renuncia.find(x=>x.id===id);
@@ -2197,6 +2383,18 @@ const COLUMNAS_EMPLEADOS = [
   { label:'Teléfono', value: e => e.telefono||'' },
   { label:'Correo', value: e => e.correo||'' },
   { label:'Dirección', value: e => e.direccion||'' },
+  { label:'Departamento', value: e => e.departamento||'' },
+  { label:'Municipio', value: e => e.municipio||'' },
+  { label:'Fecha de ingreso', value: e => e.fecha_ingreso||'' },
+  { label:'DUI', value: e => e.dui||'' },
+  { label:'ISSS', value: e => e.isss||'' },
+  { label:'Carné SEMERC', value: e => e.carne_semerc||'' },
+  { label:'Hora entrada', value: e => e.hora_entrada||'' },
+  { label:'Hora salida', value: e => e.hora_salida||'' },
+  { label:'Días a trabajar', value: e => e.dias_trabajo||'' },
+  { label:'Días de descanso', value: e => e.dias_descanso||'' },
+  { label:'Banco', value: e => nombreBanco(e.banco_id) || '' },
+  { label:'Número de cuenta', value: e => e.numero_cuenta||'' },
   { label:'Tipo de pago', value: e => e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora' },
   { label:'Tarifa', value: e => e.tarifa||'' },
   { label:'Seguro Social', value: e => e.seguro_social||'' },
@@ -2258,6 +2456,10 @@ const COLUMNAS_TIPOS_RENUNCIA = [
   { label:'Nombre', value: t => t.nombre||'' },
   { label:'Estado', value: t => t.activo!=='false' ? 'Activo' : 'Inactivo' }
 ];
+const COLUMNAS_BANCOS = [
+  { label:'Nombre', value: b => b.nombre||'' },
+  { label:'Estado', value: b => b.activo!=='false' ? 'Activo' : 'Inactivo' }
+];
 
 function accionExportar(seccion, tipo){
   let rows, columnas, filename, titulo;
@@ -2277,6 +2479,7 @@ function accionExportar(seccion, tipo){
   } else if(seccion==='afps'){ rows = DB.afps.slice(); columnas = COLUMNAS_AFPS; filename='afps'; titulo='AFP'; }
   else if(seccion==='incapacidades'){ rows = obtenerIncapacidadesFiltradas(); columnas = COLUMNAS_INCAPACIDADES; filename='incapacidades'; titulo='Incapacidades'; }
   else if(seccion==='tipos_renuncia'){ rows = DB.tipos_renuncia.slice(); columnas = COLUMNAS_TIPOS_RENUNCIA; filename='tipos_renuncia'; titulo='Tipos de renuncia'; }
+  else if(seccion==='bancos'){ rows = DB.bancos.slice(); columnas = COLUMNAS_BANCOS; filename='bancos'; titulo='Bancos'; }
   else return;
 
   if(rows.length===0){ toast('No hay filas para exportar con los filtros actuales','err'); return; }
@@ -2293,7 +2496,7 @@ function closeModal(){
   document.getElementById('modalBody').innerHTML='';
   EMP_SELECCIONADOS.clear(); CUENTA_SELECCIONADOS.clear(); SALA_SELECCIONADOS.clear();
   SUP_SELECCIONADOS.clear(); AFP_SELECCIONADOS.clear(); HERR_SELECCIONADOS.clear(); INCAP_SELECCIONADOS.clear();
-  TIPO_RENUNCIA_SELECCIONADOS.clear();
+  TIPO_RENUNCIA_SELECCIONADOS.clear(); BANCO_SELECCIONADOS.clear();
   refrescarPestanaActiva();
 }
 function refrescarPestanaActiva(){
@@ -2305,6 +2508,7 @@ function refrescarPestanaActiva(){
   else if(tab==='salas') renderSalas();
   else if(tab==='supervisores') renderSupervisores();
   else if(tab==='afps') renderAfps();
+  else if(tab==='bancos') renderBancos();
   else if(tab==='herramientas') renderHerramientas();
   else if(tab==='incapacidades') renderIncapacidades();
   else if(tab==='renuncias') renderRenuncias();
