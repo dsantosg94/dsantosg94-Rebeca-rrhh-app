@@ -555,12 +555,25 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
           <div><h2>Planilla</h2><div class="sub">Cálculo de pago por periodo</div></div>
         </div>
         <div class="panel">
+          <div class="toolbar" style="margin-bottom:10px;">
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Mes</label><input type="month" id="planMes"></div>
+            <button class="btn" style="align-self:flex-end;" onclick="llenarRangoPlanilla('q1')">1ra quincena</button>
+            <button class="btn" style="align-self:flex-end;" onclick="llenarRangoPlanilla('q2')">2da quincena</button>
+            <button class="btn" style="align-self:flex-end;" onclick="llenarRangoPlanilla('mes')">Mes completo</button>
+          </div>
           <div class="toolbar" style="margin-bottom:14px;">
             <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Desde</label><input type="date" id="planDesde"></div>
             <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Hasta</label><input type="date" id="planHasta"></div>
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Tipo de periodo</label>
+              <select id="planTipoPeriodo">
+                <option value="quincenal">Quincenal</option>
+                <option value="mensual">Mensual</option>
+              </select>
+            </div>
             <button class="btn btn-add" style="align-self:flex-end;" onclick="calcularPlanilla()">Calcular planilla</button>
             <button class="btn" style="align-self:flex-end;" onclick="exportarCSV()">Exportar CSV</button>
           </div>
+          <div class="sub" style="margin-bottom:10px;">"Tipo de periodo" decide dos cosas: a los empleados de salario mensual que pagas "un solo pago al mes" solo se les calcula cuando eliges Mensual, y a los que pagas Quincenal solo cuando eliges Quincenal — además define si a un mensual le corresponde el sueldo completo o la mitad. Los empleados "Por día" se calculan siempre, según los días reales dentro del rango de fechas.</div>
           <div id="planStats"></div>
           <div id="planTableWrap" class="table-scroll"></div>
           <div class="sub" style="margin-top:10px;">El formato del CSV es provisional — cuando tengas el formato exacto que pide el banco, lo ajustamos.</div>
@@ -630,7 +643,7 @@ const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
 const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv', viaticos:'data/viaticos.csv', registro_viaticos:'data/registro_viaticos.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','codigo_pais','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss','viatico_id'];
+const EMP_H = ['id','nombre','apellido','direccion','telefono','codigo_pais','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss','viatico_id','frecuencia_pago','descuentos'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas','nota'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
@@ -641,6 +654,7 @@ const BANCO_H = ['id','nombre','activo'];
 const VIATICO_H = ['id','nombre','monto','activo'];
 const REG_VIA_H = ['id','empleado_id','viatico_id','fecha','monto','motivo'];
 const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const DIAS_JS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']; // Date.getDay(): 0=Domingo
 const PAISES_TELEFONO = [
   // Norteamérica
   { nombre:'El Salvador', codigo:'503', digitos:8 },
@@ -1129,7 +1143,20 @@ const TABLA_EMP_COLUMNAS = [
   { key:'vence_srs', label:'Vence SRS', render: e => `<td>${pillCarneSRS(e)}</td>` },
   { key:'tipo_pago', label:'Tipo de pago', render: e => `<td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>` },
   { key:'tarifa', label:'Tarifa', render: e => `<td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>` },
-  { key:'viatico', label:'Viático', render: e => `<td>${e.viatico_id ? nombreViatico(e.viatico_id) : '—'}</td>` }
+  { key:'viatico', label:'Viático', render: e => `<td>${e.viatico_id ? nombreViatico(e.viatico_id) : '—'}</td>` },
+  { key:'frecuencia_pago', label:'¿Cómo se le paga?', render: e => `<td>${e.tipo_pago==='mensual' ? (e.frecuencia_pago==='quincenal'?'Quincenal':'Un solo pago al mes') : '—'}</td>` },
+  { key:'pago_neto', label:'Pago neto por periodo', render: e => {
+      if(e.tipo_pago!=='mensual') return `<td>—</td>`;
+      const bruto = e.frecuencia_pago==='quincenal' ? Number(e.tarifa||0)/2 : Number(e.tarifa||0);
+      const neto = bruto - sumaDescuentos(e);
+      return `<td class="mono">$${neto.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`;
+    } },
+  { key:'descuentos', label:'Descuentos', render: e => {
+      const lista = parseDescuentos(e.descuentos);
+      if(lista.length===0) return `<td>—</td>`;
+      const total = lista.reduce((s,d)=>s+d.monto,0);
+      return `<td style="font-size:12px;">${lista.map(d=>d.concepto+': $'+d.monto.toLocaleString()).join('<br>')}<br><strong>Total: $${total.toLocaleString()}</strong></td>`;
+    } }
 ];
 const EMP_COLUMNAS_VISIBLES = new Set(TABLA_EMP_COLUMNAS.map(c=>c.key));
 
@@ -1341,12 +1368,19 @@ function openEmpForm(id){
       </div>
       <div>
         <label>Tipo de pago</label>
-        <select id="m_tipopago" onchange="document.getElementById('m_tarifaLabel').textContent = this.value==='mensual' ? 'Salario mensual' : 'Salario por día'">
+        <select id="m_tipopago" onchange="document.getElementById('m_tarifaLabel').textContent = this.value==='mensual' ? 'Salario mensual' : 'Salario por día'; document.getElementById('m_frecuencia_wrap').style.display = this.value==='mensual' ? 'block' : 'none';">
           <option value="dia" ${e?.tipo_pago!=='mensual'?'selected':''}>Por día</option>
           <option value="mensual" ${e?.tipo_pago==='mensual'?'selected':''}>Salario mensual</option>
         </select>
       </div>
       <div><label id="m_tarifaLabel">${e?.tipo_pago==='mensual'?'Salario mensual':'Salario por día'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
+      <div id="m_frecuencia_wrap" style="display:${e?.tipo_pago==='mensual'?'block':'none'};">
+        <label>¿Cómo se le paga?</label>
+        <select id="m_frecuencia_pago">
+          <option value="mensual" ${e?.frecuencia_pago!=='quincenal'?'selected':''}>Un solo pago al mes</option>
+          <option value="quincenal" ${e?.frecuencia_pago==='quincenal'?'selected':''}>Quincenal (la mitad cada quincena)</option>
+        </select>
+      </div>
       <div><label>Hora de entrada *</label><select id="m_hora_entrada"><option value="">Selecciona...</option>${optsHoras}</select></div>
       <div><label>Hora de salida *</label><select id="m_hora_salida"><option value="">Selecciona...</option>${optsHoras}</select></div>
       <div class="full"><label>Días a trabajar *</label><div>${checkboxesDias('m_dia_trabajo', diasTrabajo)}</div></div>
@@ -1364,6 +1398,11 @@ function openEmpForm(id){
         ${comboHTML('m_viatico', opcionesViatico, e?.viatico_id||'', viaticoSel?.nombre||'', 'Buscar viático...')}
         ${viaticosActivos.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes viáticos creados — ve a "Empleados → Viáticos" y agrega el primero.</div>' : ''}
       </div>
+      <div class="full">
+        <label>Descuentos / préstamos (opcional, puede tener varios)</label>
+        <div id="m_descuentos_lista"></div>
+        <button type="button" class="btn btn-sm" style="margin-top:6px;" onclick="agregarFilaDescuento()">+ Agregar descuento</button>
+      </div>
       <div><label>Carné de SRS (manipulación de alimentos)</label><input id="m_carne_srs" value="${e?.carne_srs||''}" placeholder="Número o dejar vacío" oninput="document.getElementById('m_srs_fecha').disabled=!this.value; if(!this.value) document.getElementById('m_srs_fecha').value='';"></div>
       <div><label>Vencimiento del carné SRS</label><input id="m_srs_fecha" type="date" value="${e?.carne_srs_vencimiento||''}" ${e?.carne_srs ? '' : 'disabled'}></div>
       <div class="full" style="margin-top:6px;">
@@ -1378,6 +1417,7 @@ function openEmpForm(id){
       <button class="btn" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-add" onclick="submitEmpForm('${id||''}')">Guardar</button>
     </div>`;
+  renderFilasDescuento(parseDescuentos(e?.descuentos));
   document.getElementById('m_departamento').value = e?.departamento || '';
   document.getElementById('m_municipio').value = e?.municipio || '';
   document.getElementById('m_hora_entrada').value = e?.hora_entrada || '';
@@ -1419,6 +1459,8 @@ async function submitEmpForm(id){
     es_supervisor: 'false',
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
     afp_id: comboValor('m_afp'), viatico_id: comboValor('m_viatico'),
+    frecuencia_pago: val('m_tipopago')==='mensual' ? val('m_frecuencia_pago') : '',
+    descuentos: leerFilasDescuento(),
     carne_srs: val('m_carne_srs'), carne_srs_vencimiento: val('m_carne_srs') ? val('m_srs_fecha') : '',
     activo: checkboxActivo ? (checkboxActivo.checked ? 'true' : 'false') : 'false'
   };
@@ -1794,6 +1836,54 @@ async function sincronizarGoogleForm(){
 }
 
 /* ============ ASISTENCIA ============ */
+/* Descuentos (préstamos): se guardan como texto "Concepto:monto|Concepto2:monto2" */
+function parseDescuentos(str){
+  if(!str) return [];
+  return str.split('|').filter(Boolean).map(par=>{
+    const idx = par.lastIndexOf(':');
+    if(idx===-1) return { concepto: par, monto: 0 };
+    return { concepto: par.slice(0, idx), monto: Number(par.slice(idx+1)) || 0 };
+  });
+}
+function encodeDescuentos(lista){
+  return lista
+    .filter(d => d.concepto && d.monto > 0)
+    .map(d => `${String(d.concepto).replace(/[:|]/g,'-')}:${d.monto}`)
+    .join('|');
+}
+function sumaDescuentos(emp){
+  return parseDescuentos(emp.descuentos).reduce((s,d)=>s+d.monto, 0);
+}
+
+let DESCUENTO_CONTADOR = 0;
+function renderFilasDescuento(lista){
+  const cont = document.getElementById('m_descuentos_lista');
+  if(!cont) return;
+  cont.innerHTML = '';
+  DESCUENTO_CONTADOR = 0;
+  if(lista.length===0){ agregarFilaDescuento(); return; }
+  lista.forEach(d => agregarFilaDescuento(d.concepto, d.monto));
+}
+function agregarFilaDescuento(concepto, monto){
+  const cont = document.getElementById('m_descuentos_lista');
+  if(!cont) return;
+  const id = 'desc_' + (DESCUENTO_CONTADOR++);
+  const fila = document.createElement('div');
+  fila.id = id;
+  fila.style.cssText = 'display:flex;gap:8px;margin-bottom:6px;align-items:center;';
+  fila.innerHTML = `
+    <input type="text" placeholder="Concepto (ej. Préstamo caja rural)" value="${concepto||''}" style="flex:2;" class="descuento_concepto">
+    <input type="number" step="0.01" placeholder="Monto" value="${monto||''}" style="flex:1;" class="descuento_monto">
+    <button type="button" class="btn btn-sm btn-danger" onclick="document.getElementById('${id}').remove()">✕</button>`;
+  cont.appendChild(fila);
+}
+function leerFilasDescuento(){
+  const conceptos = [...document.querySelectorAll('.descuento_concepto')];
+  const montos = [...document.querySelectorAll('.descuento_monto')];
+  const lista = conceptos.map((c,i)=>({ concepto: c.value.trim(), monto: Number(montos[i].value)||0 }));
+  return encodeDescuentos(lista);
+}
+
 function calcHoras(entrada, salida){
   const [h1,m1] = entrada.split(':').map(Number);
   const [h2,m2] = salida.split(':').map(Number);
@@ -1905,19 +1995,74 @@ function diaEstaCompleto(emp, marcaDelDia){
   return Number(marcaDelDia.horas_trabajadas||0) >= horasJornada;
 }
 
+function llenarRangoPlanilla(tipo){
+  const mesVal = val('planMes'); // formato "YYYY-MM"
+  if(!mesVal){ toast('Elige primero el mes','err'); return; }
+  const [anio, mes] = mesVal.split('-').map(Number);
+  const ultimoDia = new Date(anio, mes, 0).getDate(); // día 0 del mes siguiente = último día de este mes
+  const desdeInput = document.getElementById('planDesde');
+  const hastaInput = document.getElementById('planHasta');
+  const tipoPeriodoSel = document.getElementById('planTipoPeriodo');
+  if(tipo==='q1'){
+    desdeInput.value = `${mesVal}-01`;
+    hastaInput.value = `${mesVal}-15`;
+    tipoPeriodoSel.value = 'quincenal';
+  } else if(tipo==='q2'){
+    desdeInput.value = `${mesVal}-16`;
+    hastaInput.value = `${mesVal}-${pad2(ultimoDia)}`;
+    tipoPeriodoSel.value = 'quincenal';
+  } else {
+    desdeInput.value = `${mesVal}-01`;
+    hastaInput.value = `${mesVal}-${pad2(ultimoDia)}`;
+    tipoPeriodoSel.value = 'mensual';
+  }
+}
+
 function calcularPlanilla(){
   const desde = val('planDesde'), hasta = val('planHasta');
+  const tipoPeriodo = val('planTipoPeriodo') || 'mensual'; // 'quincenal' o 'mensual'
   if(!desde || !hasta){ toast('Elige el rango de fechas','err'); return; }
   const activos = DB.empleados.filter(e=>e.activo==='true');
 
   const resultado = activos.map(e=>{
+    // A los de salario mensual solo se les calcula en el tipo de periodo que les corresponde
+    if(e.tipo_pago==='mensual'){
+      const frecuencia = e.frecuencia_pago==='quincenal' ? 'quincenal' : 'mensual';
+      if(frecuencia !== tipoPeriodo) return null;
+    }
+
     const marcas = DB.asistencia.filter(a=>a.empleado_id===e.id && a.fecha>=desde && a.fecha<=hasta);
 
     let unidad, tipoUnidad, base;
-    let diasIncompletos = 0, diasSinHorario = 0;
+    let diasIncompletos = 0, diasSinHorario = 0, diasDescontadosMensual = 0;
 
     if(e.tipo_pago==='mensual'){
-      unidad = 1; tipoUnidad = 'mes'; base = Number(e.tarifa||0);
+      unidad = 1; tipoUnidad = tipoPeriodo==='quincenal' ? 'quincena' : 'mes';
+      const tarifaMensual = Number(e.tarifa||0);
+      const objetivo = tipoPeriodo==='quincenal' ? tarifaMensual/2 : tarifaMensual;
+      const diasTrabajoEmp = (e.dias_trabajo||'').split(',').filter(Boolean);
+
+      if(diasTrabajoEmp.length===0 || !e.hora_entrada || !e.hora_salida){
+        // Sin días de trabajo u horario definidos, no se puede evaluar faltas: se paga completo
+        base = objetivo;
+      } else {
+        let diasLaborales = 0;
+        let cursor = new Date(desde+'T00:00:00');
+        const fin = new Date(hasta+'T00:00:00');
+        while(cursor <= fin){
+          const nombreDia = DIAS_JS[cursor.getDay()];
+          if(diasTrabajoEmp.includes(nombreDia)){
+            diasLaborales++;
+            const fechaStr = `${cursor.getFullYear()}-${pad2(cursor.getMonth()+1)}-${pad2(cursor.getDate())}`;
+            const marca = DB.asistencia.find(a=>a.empleado_id===e.id && a.fecha===fechaStr);
+            const completo = marca ? diaEstaCompleto(e, marca) : false;
+            if(!completo) diasDescontadosMensual++;
+          }
+          cursor.setDate(cursor.getDate()+1);
+        }
+        const valorDia = diasLaborales>0 ? objetivo/diasLaborales : 0;
+        base = Math.max(0, objetivo - diasDescontadosMensual*valorDia);
+      }
     } else {
       // Solo se pagan los días donde se completó la jornada (según su horario configurado)
       const porFecha = {};
@@ -1941,40 +2086,44 @@ function calcularPlanilla(){
     const montoViaticosOcasionales = ocasionales.reduce((s,r)=>s+Number(r.monto||0),0);
 
     const totalViaticos = montoViaticoFijo + montoViaticosOcasionales;
-    const total = Math.round((base + totalViaticos)*100)/100;
+    const totalDescuentos = sumaDescuentos(e);
+    const total = Math.max(0, Math.round((base + totalViaticos - totalDescuentos)*100)/100);
 
     return {
       emp: e, unidad, tipoUnidad, tarifa: Number(e.tarifa||0), base,
       viaticoFijoNombre: viaticoFijo ? viaticoFijo.nombre : '', montoViaticoFijo,
       cantidadOcasionales: ocasionales.length, montoViaticosOcasionales,
-      totalViaticos, total,
-      diasIncompletos, diasSinHorario
+      totalViaticos, totalDescuentos, total,
+      diasIncompletos, diasSinHorario, diasDescontadosMensual
     };
-  }).filter(r=>r.unidad>0 || r.totalViaticos>0);
+  }).filter(r=>r && (r.unidad>0 || r.totalViaticos>0));
   ULTIMO_CALCULO = resultado;
 
   const totalPagar = resultado.reduce((s,r)=>s+r.total,0);
   const totalIncompletos = resultado.reduce((s,r)=>s+r.diasIncompletos,0);
   const totalSinHorario = resultado.reduce((s,r)=>s+r.diasSinHorario,0);
+  const totalDescontadosMensual = resultado.reduce((s,r)=>s+(r.diasDescontadosMensual||0),0);
   document.getElementById('planStats').innerHTML = `
     <div class="stat-row">
       <div class="stat"><div class="n">${resultado.length}</div><div class="l">Empleados a pagar</div></div>
       <div class="stat"><div class="n mono">$${totalPagar.toLocaleString(undefined,{maximumFractionDigits:2})}</div><div class="l">Total del periodo</div></div>
     </div>
     ${totalIncompletos>0 ? `<div class="sub" style="margin-top:8px;color:var(--amber);">⚠️ ${totalIncompletos} día(s) con marca de asistencia pero sin completar la jornada — no se pagaron. Si fue un error de formato en el mensaje, corrígelo en "Asistencia".</div>` : ''}
+    ${totalDescontadosMensual>0 ? `<div class="sub" style="margin-top:4px;color:var(--amber);">⚠️ ${totalDescontadosMensual} día(s) descontado(s) a empleados de salario mensual por faltar sin permiso/ISSS/asistencia completa.</div>` : ''}
     ${totalSinHorario>0 ? `<div class="sub" style="margin-top:4px;color:var(--amber);">⚠️ ${totalSinHorario} día(s) de empleados sin horario definido en su perfil — no se pudieron evaluar. Complétalo en su ficha.</div>` : ''}`;
 
   const wrap = document.getElementById('planTableWrap');
   if(resultado.length===0){ wrap.innerHTML='<div class="empty-state">No hay asistencia registrada en ese rango.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr><th>Empleado</th><th>Empresa cliente</th><th>Tipo de pago</th><th>Días/Mes pagado</th><th>Tarifa</th><th>Base</th><th>Viático</th><th>Total a pagar</th></tr></thead><tbody>
+  wrap.innerHTML = `<table><thead><tr><th>Empleado</th><th>Empresa cliente</th><th>Tipo de pago</th><th>Días/Mes pagado</th><th>Tarifa</th><th>Base</th><th>Viático</th><th>Descuentos</th><th>Total a pagar</th></tr></thead><tbody>
   ${resultado.map(r=>`<tr>
     <td><strong>${r.emp.nombre} ${r.emp.apellido}</strong></td>
     <td>${r.emp.empresa_cliente||'—'}</td>
     <td>${r.emp.tipo_pago==='mensual'?'Salario mensual':'Por día'}</td>
     <td class="mono">${r.unidad} ${r.tipoUnidad}</td>
     <td class="mono">$${r.tarifa.toLocaleString()}</td>
-    <td class="mono">$${r.base.toLocaleString(undefined,{maximumFractionDigits:2})}</td>
+    <td class="mono">$${r.base.toLocaleString(undefined,{maximumFractionDigits:2})}${r.diasDescontadosMensual>0 ? `<br><span style="color:var(--amber);font-size:11px;">-${r.diasDescontadosMensual} día(s) sin justificar</span>` : ''}</td>
     <td class="mono" style="font-size:12px;">${r.totalViaticos>0 ? `$${r.totalViaticos.toLocaleString(undefined,{maximumFractionDigits:2})}${r.viaticoFijoNombre?' ('+r.viaticoFijoNombre+')':''}${r.cantidadOcasionales>0?' +'+r.cantidadOcasionales+' ocasional(es)':''}` : '—'}</td>
+    <td class="mono" style="font-size:12px;color:var(--red);">${r.totalDescuentos>0 ? '-$'+r.totalDescuentos.toLocaleString(undefined,{maximumFractionDigits:2}) : '—'}</td>
     <td class="mono"><strong>$${r.total.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></td>
   </tr>`).join('')}
   </tbody></table>`;
@@ -1987,9 +2136,10 @@ function exportarCSV(){
     empresa_cliente: r.emp.empresa_cliente||'',
     tipo_pago: r.emp.tipo_pago,
     unidad: r.unidad, tipo_unidad: r.tipoUnidad, tarifa: r.tarifa,
-    base: r.base,
+    base: r.base, dias_descontados_mensual: r.diasDescontadosMensual||0,
     viatico_fijo: r.viaticoFijoNombre||'', monto_viatico_fijo: r.montoViaticoFijo,
     viaticos_ocasionales_cantidad: r.cantidadOcasionales, monto_viaticos_ocasionales: r.montoViaticosOcasionales,
+    descuentos: r.totalDescuentos||0,
     total: r.total,
     dias_incompletos_no_pagados: r.diasIncompletos
   }));
@@ -2976,6 +3126,13 @@ const COLUMNAS_EMPLEADOS = [
       return `${e.carne_srs_vencimiento} (${dias<=0 ? 'Vencido' : 'Activo'})`;
     } },
   { key:'viatico', label:'Viático', value: e => e.viatico_id ? nombreViatico(e.viatico_id) : '' },
+  { key:'frecuencia_pago', label:'¿Cómo se le paga?', value: e => e.tipo_pago==='mensual' ? (e.frecuencia_pago==='quincenal'?'Quincenal':'Un solo pago al mes') : '' },
+  { key:'pago_neto', label:'Pago neto por periodo', value: e => {
+      if(e.tipo_pago!=='mensual') return '';
+      const bruto = e.frecuencia_pago==='quincenal' ? Number(e.tarifa||0)/2 : Number(e.tarifa||0);
+      return (bruto - sumaDescuentos(e)).toFixed(2);
+    } },
+  { key:'descuentos', label:'Descuentos', value: e => parseDescuentos(e.descuentos).map(d=>d.concepto+': $'+d.monto).join(' | ') },
   { label:'Estado', value: e => { const est = estadoEmpleado(e); return est==='activo' ? 'Activo' : est==='baja_mes' ? 'Baja de mes' : 'Inactivo'; } }
 ];
 const COLUMNAS_HERRAMIENTAS = [
