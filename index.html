@@ -92,6 +92,7 @@
 
   .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:600;}
   .pill-green{background:var(--green-bg);color:var(--green);}
+  .pill-yellow{background:#FEF6D8;color:#9A7B00;}
   .pill-amber{background:var(--amber-bg);color:var(--amber);}
   .pill-red{background:var(--red-bg);color:var(--red);}
   .pill-gray{background:#EEF0F4;color:var(--ink-soft);}
@@ -563,7 +564,7 @@ const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
 const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','edad','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado','seguro_social','afp_id','tiene_visa','visa_vencimiento','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado','seguro_social','afp_id','numero_visa','visa_vencimiento','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
@@ -805,6 +806,17 @@ async function saveBancos(msg){
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
+function calcularEdad(fechaNacimiento){
+  if(!fechaNacimiento) return null;
+  const hoy = new Date();
+  const nac = new Date(fechaNacimiento+'T00:00:00');
+  if(isNaN(nac)) return null;
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const noHaCumplidoAun = (hoy.getMonth() < nac.getMonth()) || (hoy.getMonth()===nac.getMonth() && hoy.getDate() < nac.getDate());
+  if(noHaCumplidoAun) edad--;
+  return edad;
+}
+
 /* ============ Tabs ============ */
 const GRUPOS_NAV = {
   empleados: ['afps','bancos','herramientas','incapacidades','renuncias','tipos_renuncia'],
@@ -950,13 +962,15 @@ function obtenerEmpleadosFiltrados(){
 }
 
 function pillVisa(e){
-  if(e.tiene_visa!=='true') return '—';
-  if(!e.visa_vencimiento) return '<span class="pill pill-amber">Sin fecha</span>';
+  if(!e.numero_visa) return '—';
+  if(!e.visa_vencimiento) return `<span class="pill pill-gray">Carné ${e.numero_visa} (sin fecha)</span>`;
   const hoy = new Date().toISOString().slice(0,10);
-  const vencida = e.visa_vencimiento < hoy;
-  return vencida
-    ? `<span class="pill pill-red">Vencida ${e.visa_vencimiento}</span>`
-    : `<span class="pill pill-green">Vigente ${e.visa_vencimiento}</span>`;
+  const msPorDia = 1000*60*60*24;
+  const diasRestantes = Math.round((new Date(e.visa_vencimiento+'T00:00:00') - new Date(hoy+'T00:00:00')) / msPorDia);
+  if(diasRestantes <= 0) return `<span class="pill pill-red">Vencido ${e.visa_vencimiento}</span>`;
+  if(diasRestantes <= 30) return `<span class="pill pill-amber">Vence ${e.visa_vencimiento}</span>`;
+  if(diasRestantes <= 60) return `<span class="pill pill-yellow">Vence ${e.visa_vencimiento}</span>`;
+  return `<span class="pill pill-green">Vigente ${e.visa_vencimiento}</span>`;
 }
 
 const EMP_SELECCIONADOS = new Set();
@@ -969,12 +983,13 @@ function renderEmpleados(){
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; actualizarBarraEmp(); return; }
   const todosMarcados = rows.length>0 && rows.every(e=>EMP_SELECCIONADOS.has(e.id));
   wrap.innerHTML = `<table><thead><tr>
-    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Seguro Social</th><th>Carné SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th>
+    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Edad</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Seguro Social</th><th>Carné SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Carné ingreso</th><th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
       <td class="col-actions"><input type="checkbox" ${EMP_SELECCIONADOS.has(e.id)?'checked':''} onchange="toggleEmpSeleccion('${e.id}', this.checked)"></td>
       <td><strong>${e.nombre} ${e.apellido}</strong></td>
+      <td class="mono">${calcularEdad(e.fecha_nacimiento) ?? '—'}</td>
       <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
       <td>${nombreSala(e.sala_id)||'—'}</td>
       <td>${supervisorDeSala(e.sala_id)||'—'}</td>
@@ -992,7 +1007,7 @@ function renderEmpleados(){
       <td class="mono">${e.numero_cuenta||'—'}</td>
       <td class="mono">${e.seguro_social||'—'}</td>
       <td class="mono">${e.carne_srs||'—'}</td>
-      <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
+      <td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
       <td>${pillVisa(e)}</td>
       <td>${e.fecha_baja ? '<span class="pill pill-red">De baja</span>' : (e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>')}</td>
@@ -1134,13 +1149,12 @@ function openEmpForm(id){
       <div class="full"><label>Dirección</label><input id="m_direccion" value="${e?.direccion||''}"></div>
       <div><label>Departamento</label><select id="m_departamento" onchange="actualizarMunicipios(this.value)"><option value="">Selecciona...</option>${optsDepartamento}</select></div>
       <div><label>Municipio</label><select id="m_municipio"><option value="">Selecciona...</option>${optsMunicipio}</select></div>
-      <div><label>Teléfono (8 dígitos)</label><input id="m_telefono" value="${e?.telefono||''}" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,8)"></div>
+      <div><label>Teléfono (8 dígitos)</label><input id="m_telefono" value="${e?.telefono||''}" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,8)"></div>
       <div><label>Correo</label><input id="m_correo" value="${e?.correo||''}"></div>
-      <div><label>Edad</label><input id="m_edad" type="number" value="${e?.edad||''}"></div>
       <div><label>Fecha de nacimiento</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
       <div><label>Fecha de ingreso</label><input id="m_fingreso" type="date" value="${e?.fecha_ingreso||''}"></div>
-      <div><label>DUI (9 dígitos)</label><input id="m_dui" value="${e?.dui||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,9)"></div>
-      <div><label>ISSS (9 dígitos)</label><input id="m_isss" value="${e?.isss||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\\D/g,'').slice(0,9)"></div>
+      <div><label>DUI (9 dígitos)</label><input id="m_dui" value="${e?.dui||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,9)"></div>
+      <div><label>ISSS (9 dígitos)</label><input id="m_isss" value="${e?.isss||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,9)"></div>
       <div><label>Carné SEMERC</label><input id="m_carne_semerc" value="${e?.carne_semerc||''}"></div>
       <div class="full"><label>Cuenta (opcional)</label>
         ${comboHTML('m_cuenta', opcionesCuenta, e?.cuenta_id||'', cuentaSel?.nombre||'', 'Buscar cuenta...', 'actualizarSalasPorCuenta')}
@@ -1150,12 +1164,12 @@ function openEmpForm(id){
       </div>
       <div>
         <label>Tipo de pago</label>
-        <select id="m_tipopago" onchange="document.getElementById('m_tarifaLabel').textContent = this.value==='fijo' ? 'Salario por día' : 'Tarifa por hora'">
-          <option value="hora" ${e?.tipo_pago!=='fijo'?'selected':''}>Por hora</option>
-          <option value="fijo" ${e?.tipo_pago==='fijo'?'selected':''}>Salario fijo (por día)</option>
+        <select id="m_tipopago" onchange="document.getElementById('m_tarifaLabel').textContent = this.value==='mensual' ? 'Salario mensual' : 'Salario por día'">
+          <option value="dia" ${e?.tipo_pago!=='mensual'?'selected':''}>Por día</option>
+          <option value="mensual" ${e?.tipo_pago==='mensual'?'selected':''}>Salario mensual</option>
         </select>
       </div>
-      <div><label id="m_tarifaLabel">${e?.tipo_pago==='fijo'?'Salario por día':'Tarifa por hora'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
+      <div><label id="m_tarifaLabel">${e?.tipo_pago==='mensual'?'Salario mensual':'Salario por día'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
       <div><label>Hora de entrada</label><select id="m_hora_entrada"><option value="">Selecciona...</option>${optsHoras}</select></div>
       <div><label>Hora de salida</label><select id="m_hora_salida"><option value="">Selecciona...</option>${optsHoras}</select></div>
       <div class="full"><label>Días a trabajar</label><div>${checkboxesDias('m_dia_trabajo', diasTrabajo)}</div></div>
@@ -1164,7 +1178,7 @@ function openEmpForm(id){
         ${comboHTML('m_banco', opcionesBanco, e?.banco_id||'', bancoSel?.nombre||'', 'Buscar banco...')}
         ${bancosActivos.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes bancos creados — ve a la pestaña "Bancos" y agrega el primero.</div>' : ''}
       </div>
-      <div><label>Número de cuenta</label><input id="m_numero_cuenta" value="${e?.numero_cuenta||''}" inputmode="numeric" oninput="this.value=this.value.replace(/\\D/g,'')"></div>
+      <div><label>Número de cuenta</label><input id="m_numero_cuenta" value="${e?.numero_cuenta||''}" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"></div>
       <div><label>Número de Seguro Social</label><input id="m_seguro_social" value="${e?.seguro_social||''}"></div>
       <div class="full"><label>AFP</label>
         ${comboHTML('m_afp', opcionesAfp, e?.afp_id||'', afpSel?.nombre||'', 'Buscar AFP...')}
@@ -1172,11 +1186,9 @@ function openEmpForm(id){
       </div>
       <div><label>Carné de SRS (manipulación de alimentos)</label><input id="m_carne_srs" value="${e?.carne_srs||''}" placeholder="Número o dejar vacío"></div>
       <div><label>Carné de empleado</label><input id="m_carne_empleado" value="${e?.carne_empleado||''}" placeholder="Aún no emitido si está vacío"></div>
-      <div class="full" style="margin-top:6px;">
-        <label class="check-row"><input type="checkbox" id="m_tiene_visa" ${e?.tiene_visa==='true'?'checked':''} onchange="document.getElementById('m_visa_fecha_wrap').style.display=this.checked?'block':'none'"> Tiene visa</label>
-      </div>
-      <div class="full" id="m_visa_fecha_wrap" style="display:${e?.tiene_visa==='true'?'block':'none'};">
-        <label>Fecha de vencimiento de la visa</label><input id="m_visa_vencimiento" type="date" value="${e?.visa_vencimiento||''}">
+      <div><label>Carné de ingreso (numérico)</label><input id="m_numero_visa" value="${e?.numero_visa||''}" inputmode="numeric" placeholder="Número o dejar vacío" oninput="this.value=this.value.replace(/\D/g,''); document.getElementById('m_visa_fecha_wrap').style.display=this.value?'block':'none';"></div>
+      <div class="full" id="m_visa_fecha_wrap" style="display:${e?.numero_visa?'block':'none'};">
+        <label>Fecha de vencimiento del carné</label><input id="m_visa_vencimiento" type="date" value="${e?.visa_vencimiento||''}">
       </div>
       <div class="full" style="margin-top:6px;">
         ${e?.fecha_baja
@@ -1215,7 +1227,7 @@ async function submitEmpForm(id){
   const rec = {
     id: id || uid(),
     nombre: val('m_nombre'), apellido: val('m_apellido'), direccion: val('m_direccion'),
-    telefono, correo: val('m_correo'), edad: val('m_edad'),
+    telefono, correo: val('m_correo'),
     fecha_nacimiento: val('m_fnac'),
     fecha_ingreso: val('m_fingreso'),
     departamento: val('m_departamento'), municipio: val('m_municipio'),
@@ -1230,8 +1242,8 @@ async function submitEmpForm(id){
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
     seguro_social: val('m_seguro_social'), afp_id: comboValor('m_afp'),
     carne_srs: val('m_carne_srs'), carne_empleado: val('m_carne_empleado'),
-    tiene_visa: document.getElementById('m_tiene_visa').checked ? 'true' : 'false',
-    visa_vencimiento: document.getElementById('m_tiene_visa').checked ? val('m_visa_vencimiento') : '',
+    numero_visa: val('m_numero_visa'),
+    visa_vencimiento: val('m_numero_visa') ? val('m_visa_vencimiento') : '',
     activo: checkboxActivo ? (checkboxActivo.checked ? 'true' : 'false') : 'false'
   };
   const existente = DB.empleados.find(x=>x.id===id);
@@ -1613,12 +1625,11 @@ function calcularPlanilla(){
   const activos = DB.empleados.filter(e=>e.activo==='true');
   const resultado = activos.map(e=>{
     const marcas = DB.asistencia.filter(a=>a.empleado_id===e.id && a.fecha>=desde && a.fecha<=hasta);
-    if(e.tipo_pago==='fijo'){
+    if(e.tipo_pago==='mensual'){
+      return { emp:e, unidad: 1, tipoUnidad:'mes', tarifa: Number(e.tarifa||0), total: Number(e.tarifa||0) };
+    } else {
       const dias = new Set(marcas.map(m=>m.fecha)).size;
       return { emp:e, unidad: dias, tipoUnidad:'días', tarifa: Number(e.tarifa||0), total: dias*Number(e.tarifa||0) };
-    } else {
-      const horas = marcas.reduce((s,m)=>s+Number(m.horas_trabajadas||0),0);
-      return { emp:e, unidad: Math.round(horas*100)/100, tipoUnidad:'horas', tarifa: Number(e.tarifa||0), total: Math.round(horas*Number(e.tarifa||0)*100)/100 };
     }
   }).filter(r=>r.unidad>0);
   ULTIMO_CALCULO = resultado;
@@ -1636,7 +1647,7 @@ function calcularPlanilla(){
   ${resultado.map(r=>`<tr>
     <td><strong>${r.emp.nombre} ${r.emp.apellido}</strong></td>
     <td>${r.emp.empresa_cliente||'—'}</td>
-    <td>${r.emp.tipo_pago==='fijo'?'Salario fijo':'Por hora'}</td>
+    <td>${r.emp.tipo_pago==='mensual'?'Salario mensual':'Por día'}</td>
     <td class="mono">${r.unidad} ${r.tipoUnidad}</td>
     <td class="mono">$${r.tarifa.toLocaleString()}</td>
     <td class="mono"><strong>$${r.total.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></td>
@@ -2447,13 +2458,13 @@ const COLUMNAS_EMPLEADOS = [
   { label:'Días de descanso', value: e => e.dias_descanso||'' },
   { label:'Banco', value: e => nombreBanco(e.banco_id) || '' },
   { label:'Número de cuenta', value: e => e.numero_cuenta||'' },
-  { label:'Tipo de pago', value: e => e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora' },
+  { label:'Tipo de pago', value: e => e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día' },
   { label:'Tarifa', value: e => e.tarifa||'' },
   { label:'Seguro Social', value: e => e.seguro_social||'' },
   { label:'AFP', value: e => { const a = DB.afps.find(x=>x.id===e.afp_id); return a ? a.nombre : ''; } },
   { label:'Carné SRS', value: e => e.carne_srs||'' },
   { label:'Carné de empleado', value: e => e.carne_empleado||'' },
-  { label:'Visa', value: e => e.tiene_visa==='true' ? `Sí (vence ${e.visa_vencimiento||'sin fecha'})` : 'No' },
+  { label:'Carné de ingreso', value: e => e.numero_visa ? `${e.numero_visa} (vence ${e.visa_vencimiento||'sin fecha'})` : '' },
   { label:'Estado', value: e => e.fecha_baja ? 'De baja' : (e.activo==='true' ? 'Activo' : 'Inactivo') }
 ];
 const COLUMNAS_HERRAMIENTAS = [
