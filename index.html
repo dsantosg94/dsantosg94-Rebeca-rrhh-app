@@ -564,7 +564,7 @@ const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
 const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','carne_empleado','seguro_social','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','carne_empleado','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
@@ -971,7 +971,7 @@ function renderEmpleados(){
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; actualizarBarraEmp(); return; }
   const todosMarcados = rows.length>0 && rows.every(e=>EMP_SELECCIONADOS.has(e.id));
   wrap.innerHTML = `<table><thead><tr>
-    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Edad</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Seguro Social</th><th>Carné SRS</th><th>Vence SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th>
+    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Edad</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Carné SRS</th><th>Vence SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
@@ -993,7 +993,6 @@ function renderEmpleados(){
       <td style="font-size:12px;">${e.dias_descanso ? e.dias_descanso.replace(/,/g,', ') : '—'}</td>
       <td>${nombreBanco(e.banco_id)||'—'}</td>
       <td class="mono">${e.numero_cuenta||'—'}</td>
-      <td class="mono">${e.seguro_social||'—'}</td>
       <td class="mono">${e.carne_srs||'—'}</td>
       <td class="mono">${e.carne_srs_vencimiento||'—'}</td>
       <td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>
@@ -1167,7 +1166,6 @@ function openEmpForm(id){
         ${bancosActivos.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes bancos creados — ve a la pestaña "Bancos" y agrega el primero.</div>' : ''}
       </div>
       <div><label>Número de cuenta</label><input id="m_numero_cuenta" value="${e?.numero_cuenta||''}" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"></div>
-      <div><label>Número de Seguro Social</label><input id="m_seguro_social" value="${e?.seguro_social||''}"></div>
       <div class="full"><label>AFP</label>
         ${comboHTML('m_afp', opcionesAfp, e?.afp_id||'', afpSel?.nombre||'', 'Buscar AFP...')}
         ${afpsActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes AFP creadas — ve a la pestaña "AFP" y agrega la primera.</div>' : ''}
@@ -1225,7 +1223,7 @@ async function submitEmpForm(id){
     empresa_cliente: nombreCuenta(cuentaId),
     es_supervisor: 'false',
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
-    seguro_social: val('m_seguro_social'), afp_id: comboValor('m_afp'),
+    afp_id: comboValor('m_afp'),
     carne_srs: val('m_carne_srs'), carne_srs_vencimiento: val('m_carne_srs') ? val('m_srs_fecha') : '',
     carne_empleado: val('m_carne_empleado'),
     activo: checkboxActivo ? (checkboxActivo.checked ? 'true' : 'false') : 'false'
@@ -2444,7 +2442,6 @@ const COLUMNAS_EMPLEADOS = [
   { label:'Número de cuenta', value: e => e.numero_cuenta||'' },
   { label:'Tipo de pago', value: e => e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día' },
   { label:'Tarifa', value: e => e.tarifa||'' },
-  { label:'Seguro Social', value: e => e.seguro_social||'' },
   { label:'AFP', value: e => { const a = DB.afps.find(x=>x.id===e.afp_id); return a ? a.nombre : ''; } },
   { label:'Carné SRS', value: e => e.carne_srs||'' },
   { label:'Vencimiento SRS', value: e => e.carne_srs_vencimiento||'' },
