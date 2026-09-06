@@ -1944,7 +1944,7 @@ function calcularPlanilla(){
     const total = Math.round((base + totalViaticos)*100)/100;
 
     return {
-      emp, unidad, tipoUnidad, tarifa: Number(e.tarifa||0), base,
+      emp: e, unidad, tipoUnidad, tarifa: Number(e.tarifa||0), base,
       viaticoFijoNombre: viaticoFijo ? viaticoFijo.nombre : '', montoViaticoFijo,
       cantidadOcasionales: ocasionales.length, montoViaticosOcasionales,
       totalViaticos, total,
