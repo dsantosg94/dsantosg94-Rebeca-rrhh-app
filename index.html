@@ -545,6 +545,7 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
               <input type="date" id="fAsisHasta" onchange="renderAsistencia()">
             </div>
           </div>
+          <div id="asisAlertas"></div>
           <div id="asisTableWrap"></div>
         </div>
       </div>
@@ -1902,11 +1903,26 @@ function renderAsistencia(){
   if(fHasta) rows = rows.filter(r=>r.fecha <= fHasta);
 
   const wrap = document.getElementById('asisTableWrap');
+  const alertasWrap = document.getElementById('asisAlertas');
+  const fueraDeHorarioLista = rows.map(r=>{
+    const emp = DB.empleados.find(e=>e.id===r.empleado_id);
+    return { r, emp, fuera: emp ? fechaFueraDeHorario(emp, r.fecha) : false };
+  }).filter(x=>x.fuera);
+
+  if(alertasWrap){
+    alertasWrap.innerHTML = fueraDeHorarioLista.length===0 ? '' : `
+      <div class="sub" style="margin-bottom:12px;padding:10px 12px;background:#FBEAE8;color:var(--red);border-radius:8px;">
+        ⚠️ <strong>${fueraDeHorarioLista.length} marca(s) de asistencia en días que no corresponden</strong> — revísalas y corrígelas manualmente si fue un error:
+        <div style="margin-top:6px;">${fueraDeHorarioLista.map(x=>`${x.emp.nombre} ${x.emp.apellido} (${x.r.fecha})`).join(' · ')}</div>
+      </div>`;
+  }
+
   if(rows.length===0){ wrap.innerHTML='<div class="empty-state">Sin marcas de asistencia todavía.</div>'; return; }
   wrap.innerHTML = `<div class="tickets">${rows.map(r=>{
     const emp = DB.empleados.find(e=>e.id===r.empleado_id);
+    const fueraDeHorario = emp ? fechaFueraDeHorario(emp, r.fecha) : false;
     return `<div class="ticket">
-      <div class="emp">${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}<span class="sub">${r.fecha}${r.nota ? ' · <strong style="color:var(--amber);">'+r.nota+'</strong>' : ''}</span></div>
+      <div class="emp">${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}<span class="sub">${r.fecha}${r.nota ? ' · <strong style="color:var(--amber);">'+r.nota+'</strong>' : ''}${fueraDeHorario ? ' · <strong style="color:var(--red);">⚠️ Este día no le corresponde trabajar — revisar</strong>' : ''}</span></div>
       <div class="time"><span class="lab">Entrada</span>${r.hora_entrada}</div>
       <div class="time"><span class="lab">Salida</span>${r.hora_salida}</div>
       <div class="horas">${r.horas_trabajadas}h</div>
@@ -1993,6 +2009,16 @@ function diaEstaCompleto(emp, marcaDelDia){
   if(!emp.hora_entrada || !emp.hora_salida) return null; // sin horario definido, no se puede evaluar
   const horasJornada = calcHoras(emp.hora_entrada, emp.hora_salida);
   return Number(marcaDelDia.horas_trabajadas||0) >= horasJornada;
+}
+
+/* ¿Esta fecha NO es uno de los días que le toca trabajar al empleado? (ej. marcó asistencia un día de descanso) */
+function fechaFueraDeHorario(emp, fechaStr){
+  const diasTrabajoEmp = (emp.dias_trabajo||'').split(',').filter(Boolean);
+  if(diasTrabajoEmp.length===0) return false; // sin días definidos, no se puede evaluar — no se marca como alerta
+  const fecha = new Date(fechaStr+'T00:00:00');
+  if(isNaN(fecha)) return false;
+  const nombreDia = DIAS_JS[fecha.getDay()];
+  return !diasTrabajoEmp.includes(nombreDia);
 }
 
 function llenarRangoPlanilla(tipo){
@@ -2103,6 +2129,14 @@ function calcularPlanilla(){
   const totalIncompletos = resultado.reduce((s,r)=>s+r.diasIncompletos,0);
   const totalSinHorario = resultado.reduce((s,r)=>s+r.diasSinHorario,0);
   const totalDescontadosMensual = resultado.reduce((s,r)=>s+(r.diasDescontadosMensual||0),0);
+
+  const alertasFueraDeHorario = [];
+  activos.forEach(e=>{
+    DB.asistencia.filter(a=>a.empleado_id===e.id && a.fecha>=desde && a.fecha<=hasta).forEach(m=>{
+      if(fechaFueraDeHorario(e, m.fecha)) alertasFueraDeHorario.push(`${e.nombre} ${e.apellido} (${m.fecha})`);
+    });
+  });
+
   document.getElementById('planStats').innerHTML = `
     <div class="stat-row">
       <div class="stat"><div class="n">${resultado.length}</div><div class="l">Empleados a pagar</div></div>
@@ -2110,7 +2144,8 @@ function calcularPlanilla(){
     </div>
     ${totalIncompletos>0 ? `<div class="sub" style="margin-top:8px;color:var(--amber);">⚠️ ${totalIncompletos} día(s) con marca de asistencia pero sin completar la jornada — no se pagaron. Si fue un error de formato en el mensaje, corrígelo en "Asistencia".</div>` : ''}
     ${totalDescontadosMensual>0 ? `<div class="sub" style="margin-top:4px;color:var(--amber);">⚠️ ${totalDescontadosMensual} día(s) descontado(s) a empleados de salario mensual por faltar sin permiso/ISSS/asistencia completa.</div>` : ''}
-    ${totalSinHorario>0 ? `<div class="sub" style="margin-top:4px;color:var(--amber);">⚠️ ${totalSinHorario} día(s) de empleados sin horario definido en su perfil — no se pudieron evaluar. Complétalo en su ficha.</div>` : ''}`;
+    ${totalSinHorario>0 ? `<div class="sub" style="margin-top:4px;color:var(--amber);">⚠️ ${totalSinHorario} día(s) de empleados sin horario definido en su perfil — no se pudieron evaluar. Complétalo en su ficha.</div>` : ''}
+    ${alertasFueraDeHorario.length>0 ? `<div class="sub" style="margin-top:8px;padding:10px 12px;background:#FBEAE8;color:var(--red);border-radius:8px;">⚠️ <strong>${alertasFueraDeHorario.length} marca(s) de asistencia en días que no corresponden</strong> dentro de este periodo — revísalas en "Asistencia" antes de pagar: ${alertasFueraDeHorario.join(' · ')}</div>` : ''}`;
 
   const wrap = document.getElementById('planTableWrap');
   if(resultado.length===0){ wrap.innerHTML='<div class="empty-state">No hay asistencia registrada en ese rango.</div>'; return; }
