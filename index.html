@@ -240,11 +240,22 @@
               </select>
             </div>
             <div class="toolbar">
+              <button class="btn btn-sm" onclick="toggleColumnasPanel()">🧩 Columnas</button>
               <button class="btn btn-sm" onclick="accionExportar('empleados','copiar')">Copiar</button>
               <button class="btn btn-sm" onclick="accionExportar('empleados','excel')">Excel</button>
               <button class="btn btn-sm" onclick="accionExportar('empleados','csv')">CSV</button>
               <button class="btn btn-sm" onclick="accionExportar('empleados','pdf')">PDF</button>
             </div>
+          </div>
+          <div id="columnasPanel" style="display:none;margin-bottom:12px;padding:12px;background:#F5F7FA;border-radius:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <strong style="font-size:13px;">¿Qué columnas quieres ver?</strong>
+              <div>
+                <button class="btn btn-sm" onclick="marcarTodasColumnasEmp(true)">Mostrar todas</button>
+                <button class="btn btn-sm" onclick="marcarTodasColumnasEmp(false)">Ocultar todas</button>
+              </div>
+            </div>
+            <div id="columnasPanelBody"></div>
           </div>
           <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
             <button class="btn" onclick="accionEmpSeleccion('editar')">Editar</button>
@@ -1021,6 +1032,57 @@ function obtenerEmpleadosFiltrados(){
 
 const EMP_SELECCIONADOS = new Set();
 
+/* Columnas configurables de la tabla de Empleados (Nombre y Estado siempre van fijas) */
+const TABLA_EMP_COLUMNAS = [
+  { key:'edad', label:'Edad', render: e => `<td class="mono">${calcularEdad(e.fecha_nacimiento) ?? '—'}</td>` },
+  { key:'cuenta', label:'Cuenta', render: e => `<td>${nombreCuenta(e.cuenta_id)||'—'}</td>` },
+  { key:'sala', label:'Sala de venta', render: e => `<td>${nombreSala(e.sala_id)||'—'}</td>` },
+  { key:'supervisor', label:'Supervisor', render: e => `<td>${supervisorDeSala(e.sala_id)||'—'}</td>` },
+  { key:'contacto', label:'Contacto', render: e => `<td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>` },
+  { key:'departamento', label:'Departamento', render: e => `<td>${e.departamento||'—'}</td>` },
+  { key:'municipio', label:'Municipio', render: e => `<td>${e.municipio||'—'}</td>` },
+  { key:'fecha_ingreso', label:'Fecha ingreso', render: e => `<td class="mono">${e.fecha_ingreso||'—'}</td>` },
+  { key:'dui', label:'DUI', render: e => `<td class="mono">${e.dui||'—'}</td>` },
+  { key:'isss', label:'ISSS', render: e => `<td class="mono">${e.isss||'—'}</td>` },
+  { key:'carne_semerc', label:'Carné SEMERC', render: e => `<td class="mono">${e.carne_semerc||'—'}</td>` },
+  { key:'horario', label:'Horario', render: e => `<td class="mono">${e.hora_entrada && e.hora_salida ? e.hora_entrada+' - '+e.hora_salida : '—'}</td>` },
+  { key:'dias_trabajo', label:'Días trabajo', render: e => `<td style="font-size:12px;">${e.dias_trabajo ? e.dias_trabajo.replace(/,/g,', ') : '—'}</td>` },
+  { key:'dias_descanso', label:'Días descanso', render: e => `<td style="font-size:12px;">${e.dias_descanso ? e.dias_descanso.replace(/,/g,', ') : '—'}</td>` },
+  { key:'banco', label:'Banco', render: e => `<td>${nombreBanco(e.banco_id)||'—'}</td>` },
+  { key:'numero_cuenta', label:'N° cuenta', render: e => `<td class="mono">${e.numero_cuenta||'—'}</td>` },
+  { key:'carne_srs', label:'Carné SRS', render: e => `<td class="mono">${e.carne_srs||'—'}</td>` },
+  { key:'vence_srs', label:'Vence SRS', render: e => `<td>${pillCarneSRS(e)}</td>` },
+  { key:'tipo_pago', label:'Tipo de pago', render: e => `<td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>` },
+  { key:'tarifa', label:'Tarifa', render: e => `<td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>` },
+  { key:'viatico', label:'Viático', render: e => `<td>${e.viatico_id ? nombreViatico(e.viatico_id) : '—'}</td>` }
+];
+const EMP_COLUMNAS_VISIBLES = new Set(TABLA_EMP_COLUMNAS.map(c=>c.key));
+
+function toggleColumnasPanel(){
+  const panel = document.getElementById('columnasPanel');
+  if(panel.style.display==='none' || !panel.style.display){
+    generarPanelColumnas();
+    panel.style.display='block';
+  } else {
+    panel.style.display='none';
+  }
+}
+function generarPanelColumnas(){
+  const cont = document.getElementById('columnasPanelBody');
+  cont.innerHTML = TABLA_EMP_COLUMNAS.map(c=>
+    `<label class="check-row" style="margin-right:14px;margin-bottom:6px;display:inline-flex;"><input type="checkbox" ${EMP_COLUMNAS_VISIBLES.has(c.key)?'checked':''} onchange="toggleColumnaEmp('${c.key}', this.checked)"> ${c.label}</label>`
+  ).join('');
+}
+function toggleColumnaEmp(key, checked){
+  if(checked) EMP_COLUMNAS_VISIBLES.add(key); else EMP_COLUMNAS_VISIBLES.delete(key);
+  renderEmpleados();
+}
+function marcarTodasColumnasEmp(mostrar){
+  TABLA_EMP_COLUMNAS.forEach(c => mostrar ? EMP_COLUMNAS_VISIBLES.add(c.key) : EMP_COLUMNAS_VISIBLES.delete(c.key));
+  generarPanelColumnas();
+  renderEmpleados();
+}
+
 function renderEmpleados(){
   const rows = obtenerEmpleadosFiltrados();
   const wrap = document.getElementById('empTableWrap');
@@ -1028,34 +1090,15 @@ function renderEmpleados(){
   // mantenemos la selección aunque cambien los filtros, para poder buscar y seguir acumulando.
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; actualizarBarraEmp(); return; }
   const todosMarcados = rows.length>0 && rows.every(e=>EMP_SELECCIONADOS.has(e.id));
+  const columnasActivas = TABLA_EMP_COLUMNAS.filter(c=>EMP_COLUMNAS_VISIBLES.has(c.key));
   wrap.innerHTML = `<table><thead><tr>
-    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Edad</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Carné SRS</th><th>Vence SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Viático</th><th>Estado</th>
+    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th>${columnasActivas.map(c=>`<th>${c.label}</th>`).join('')}<th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
       <td class="col-actions"><input type="checkbox" ${EMP_SELECCIONADOS.has(e.id)?'checked':''} onchange="toggleEmpSeleccion('${e.id}', this.checked)"></td>
       <td><strong>${e.nombre} ${e.apellido}</strong></td>
-      <td class="mono">${calcularEdad(e.fecha_nacimiento) ?? '—'}</td>
-      <td>${nombreCuenta(e.cuenta_id)||'—'}</td>
-      <td>${nombreSala(e.sala_id)||'—'}</td>
-      <td>${supervisorDeSala(e.sala_id)||'—'}</td>
-      <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
-      <td>${e.departamento||'—'}</td>
-      <td>${e.municipio||'—'}</td>
-      <td class="mono">${e.fecha_ingreso||'—'}</td>
-      <td class="mono">${e.dui||'—'}</td>
-      <td class="mono">${e.isss||'—'}</td>
-      <td class="mono">${e.carne_semerc||'—'}</td>
-      <td class="mono">${e.hora_entrada && e.hora_salida ? e.hora_entrada+' - '+e.hora_salida : '—'}</td>
-      <td style="font-size:12px;">${e.dias_trabajo ? e.dias_trabajo.replace(/,/g,', ') : '—'}</td>
-      <td style="font-size:12px;">${e.dias_descanso ? e.dias_descanso.replace(/,/g,', ') : '—'}</td>
-      <td>${nombreBanco(e.banco_id)||'—'}</td>
-      <td class="mono">${e.numero_cuenta||'—'}</td>
-      <td class="mono">${e.carne_srs||'—'}</td>
-      <td>${pillCarneSRS(e)}</td>
-      <td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>
-      <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
-      <td>${e.viatico_id ? nombreViatico(e.viatico_id) : '—'}</td>
+      ${columnasActivas.map(c=>c.render(e)).join('')}
       <td>${pillEstadoEmpleado(e)}</td>
     </tr>`).join('')}
   </tbody></table>`;
@@ -2588,35 +2631,35 @@ function exportarPDFGenerico(rows, columnas, titulo){
 
 const COLUMNAS_EMPLEADOS = [
   { label:'Nombre', value: e => `${e.nombre} ${e.apellido}` },
-  { label:'Cuenta', value: e => nombreCuenta(e.cuenta_id) || '' },
-  { label:'Sala de venta', value: e => nombreSala(e.sala_id) || '' },
-  { label:'Supervisor', value: e => supervisorDeSala(e.sala_id) || '' },
-  { label:'Teléfono', value: e => e.telefono||'' },
-  { label:'Correo', value: e => e.correo||'' },
+  { key:'cuenta', label:'Cuenta', value: e => nombreCuenta(e.cuenta_id) || '' },
+  { key:'sala', label:'Sala de venta', value: e => nombreSala(e.sala_id) || '' },
+  { key:'supervisor', label:'Supervisor', value: e => supervisorDeSala(e.sala_id) || '' },
+  { key:'contacto', label:'Teléfono', value: e => e.telefono||'' },
+  { key:'contacto', label:'Correo', value: e => e.correo||'' },
   { label:'Dirección', value: e => e.direccion||'' },
-  { label:'Departamento', value: e => e.departamento||'' },
-  { label:'Municipio', value: e => e.municipio||'' },
-  { label:'Fecha de ingreso', value: e => e.fecha_ingreso||'' },
-  { label:'DUI', value: e => e.dui||'' },
-  { label:'ISSS', value: e => e.isss||'' },
-  { label:'Carné SEMERC', value: e => e.carne_semerc||'' },
-  { label:'Hora entrada', value: e => e.hora_entrada||'' },
-  { label:'Hora salida', value: e => e.hora_salida||'' },
-  { label:'Días a trabajar', value: e => e.dias_trabajo||'' },
-  { label:'Días de descanso', value: e => e.dias_descanso||'' },
-  { label:'Banco', value: e => nombreBanco(e.banco_id) || '' },
-  { label:'Número de cuenta', value: e => e.numero_cuenta||'' },
-  { label:'Tipo de pago', value: e => e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día' },
-  { label:'Tarifa', value: e => e.tarifa||'' },
+  { key:'departamento', label:'Departamento', value: e => e.departamento||'' },
+  { key:'municipio', label:'Municipio', value: e => e.municipio||'' },
+  { key:'fecha_ingreso', label:'Fecha de ingreso', value: e => e.fecha_ingreso||'' },
+  { key:'dui', label:'DUI', value: e => e.dui||'' },
+  { key:'isss', label:'ISSS', value: e => e.isss||'' },
+  { key:'carne_semerc', label:'Carné SEMERC', value: e => e.carne_semerc||'' },
+  { key:'horario', label:'Hora entrada', value: e => e.hora_entrada||'' },
+  { key:'horario', label:'Hora salida', value: e => e.hora_salida||'' },
+  { key:'dias_trabajo', label:'Días a trabajar', value: e => e.dias_trabajo||'' },
+  { key:'dias_descanso', label:'Días de descanso', value: e => e.dias_descanso||'' },
+  { key:'banco', label:'Banco', value: e => nombreBanco(e.banco_id) || '' },
+  { key:'numero_cuenta', label:'Número de cuenta', value: e => e.numero_cuenta||'' },
+  { key:'tipo_pago', label:'Tipo de pago', value: e => e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día' },
+  { key:'tarifa', label:'Tarifa', value: e => e.tarifa||'' },
   { label:'AFP', value: e => { const a = DB.afps.find(x=>x.id===e.afp_id); return a ? a.nombre : ''; } },
-  { label:'Carné SRS', value: e => e.carne_srs||'' },
-  { label:'Vencimiento SRS', value: e => {
+  { key:'carne_srs', label:'Carné SRS', value: e => e.carne_srs||'' },
+  { key:'vence_srs', label:'Vencimiento SRS', value: e => {
       if(!e.carne_srs || !e.carne_srs_vencimiento) return e.carne_srs_vencimiento||'';
       const hoy = new Date().toISOString().slice(0,10);
       const dias = Math.round((new Date(e.carne_srs_vencimiento+'T00:00:00') - new Date(hoy+'T00:00:00')) / (1000*60*60*24));
       return `${e.carne_srs_vencimiento} (${dias<=0 ? 'Vencido' : 'Activo'})`;
     } },
-  { label:'Viático', value: e => e.viatico_id ? nombreViatico(e.viatico_id) : '' },
+  { key:'viatico', label:'Viático', value: e => e.viatico_id ? nombreViatico(e.viatico_id) : '' },
   { label:'Estado', value: e => { const est = estadoEmpleado(e); return est==='activo' ? 'Activo' : est==='baja_mes' ? 'Baja de mes' : 'Inactivo'; } }
 ];
 const COLUMNAS_HERRAMIENTAS = [
@@ -2683,7 +2726,11 @@ const COLUMNAS_VIATICOS = [
 
 function accionExportar(seccion, tipo){
   let rows, columnas, filename, titulo;
-  if(seccion==='empleados'){ rows = obtenerEmpleadosFiltrados(); columnas = COLUMNAS_EMPLEADOS; filename='empleados'; titulo='Empleados'; }
+  if(seccion==='empleados'){
+    rows = obtenerEmpleadosFiltrados();
+    columnas = COLUMNAS_EMPLEADOS.filter(c => !c.key || EMP_COLUMNAS_VISIBLES.has(c.key));
+    filename='empleados'; titulo='Empleados';
+  }
   else if(seccion==='herramientas'){ rows = obtenerHerramientasFiltradas(); columnas = COLUMNAS_HERRAMIENTAS; filename='herramientas'; titulo='Herramientas'; }
   else if(seccion==='cuentas'){
     const busqueda = (document.getElementById('fCuentaBusqueda')?.value||'').trim().toLowerCase();
