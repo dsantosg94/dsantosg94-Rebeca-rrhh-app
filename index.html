@@ -233,8 +233,9 @@
               <select id="fSala" onchange="renderEmpleados()"><option value="">Todas las salas</option></select>
               <select id="fEstado" onchange="renderEmpleados()">
                 <option value="">Todos los estados</option>
-                <option value="1">Activos</option>
-                <option value="0">Inactivos</option>
+                <option value="activo">Activos</option>
+                <option value="baja_mes">Baja de mes</option>
+                <option value="inactivo">Inactivo</option>
               </select>
             </div>
             <div class="toolbar">
@@ -564,7 +565,7 @@ const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
 const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','carne_empleado','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
@@ -960,6 +961,20 @@ document.addEventListener('click', e=>{
 });
 
 /* ============ EMPLEADOS ============ */
+function estadoEmpleado(e){
+  if(!e.fecha_baja) return 'activo';
+  const msPorDia = 1000*60*60*24;
+  const hoy = new Date().toISOString().slice(0,10);
+  const diasDesdeBaja = Math.round((new Date(hoy+'T00:00:00') - new Date(e.fecha_baja+'T00:00:00')) / msPorDia);
+  return diasDesdeBaja <= 30 ? 'baja_mes' : 'inactivo';
+}
+function pillEstadoEmpleado(e){
+  const estado = estadoEmpleado(e);
+  if(estado==='activo') return '<span class="pill pill-green">Activo</span>';
+  if(estado==='baja_mes') return `<span class="pill pill-amber">Baja de mes (${e.fecha_baja})</span>`;
+  return `<span class="pill pill-red">Inactivo (${e.fecha_baja})</span>`;
+}
+
 function obtenerEmpleadosFiltrados(){
   const fCuenta = document.getElementById('fCuenta').value;
   const fEstado = document.getElementById('fEstado').value;
@@ -967,8 +982,7 @@ function obtenerEmpleadosFiltrados(){
   if(fCuenta) rows = rows.filter(e=>e.cuenta_id===fCuenta);
   const fSala = document.getElementById('fSala').value;
   if(fSala) rows = rows.filter(e=>e.sala_id===fSala);
-  if(fEstado==='1') rows = rows.filter(e=>e.activo==='true');
-  if(fEstado==='0') rows = rows.filter(e=>e.activo!=='true');
+  if(fEstado) rows = rows.filter(e=>estadoEmpleado(e)===fEstado);
   const busqueda = (document.getElementById('fEmpBusqueda')?.value||'').trim().toLowerCase();
   if(busqueda) rows = rows.filter(e => `${e.nombre} ${e.apellido}`.toLowerCase().includes(busqueda));
   return rows;
@@ -1010,7 +1024,7 @@ function renderEmpleados(){
       <td>${pillCarneSRS(e)}</td>
       <td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
-      <td>${e.fecha_baja ? '<span class="pill pill-red">De baja</span>' : (e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>')}</td>
+      <td>${pillEstadoEmpleado(e)}</td>
     </tr>`).join('')}
   </tbody></table>`;
   actualizarBarraEmp();
@@ -1147,15 +1161,15 @@ function openEmpForm(id){
       <div><label>Nombre</label><input id="m_nombre" value="${e?.nombre||''}"></div>
       <div><label>Apellido</label><input id="m_apellido" value="${e?.apellido||''}"></div>
       <div class="full"><label>Dirección</label><input id="m_direccion" value="${e?.direccion||''}"></div>
-      <div><label>Departamento</label><select id="m_departamento" onchange="actualizarMunicipios(this.value)"><option value="">Selecciona...</option>${optsDepartamento}</select></div>
-      <div><label>Municipio</label><select id="m_municipio"><option value="">Selecciona...</option>${optsMunicipio}</select></div>
-      <div><label>Teléfono (8 dígitos)</label><input id="m_telefono" value="${e?.telefono||''}" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,8)"></div>
+      <div><label>Departamento *</label><select id="m_departamento" onchange="actualizarMunicipios(this.value)"><option value="">Selecciona...</option>${optsDepartamento}</select></div>
+      <div><label>Municipio *</label><select id="m_municipio"><option value="">Selecciona...</option>${optsMunicipio}</select></div>
+      <div><label>Teléfono (8 dígitos) *</label><input id="m_telefono" value="${e?.telefono||''}" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,8)"></div>
       <div><label>Correo</label><input id="m_correo" value="${e?.correo||''}"></div>
-      <div><label>Fecha de nacimiento</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
-      <div><label>Fecha de ingreso</label><input id="m_fingreso" type="date" value="${e?.fecha_ingreso||''}"></div>
-      <div><label>DUI (9 dígitos)</label><input id="m_dui" value="${e?.dui||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,9)"></div>
+      <div><label>Fecha de nacimiento *</label><input id="m_fnac" type="date" value="${e?.fecha_nacimiento||''}"></div>
+      <div><label>Fecha de ingreso *</label><input id="m_fingreso" type="date" value="${e?.fecha_ingreso||''}"></div>
+      <div><label>DUI (9 dígitos) *</label><input id="m_dui" value="${e?.dui||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,9)"></div>
       <div><label>ISSS (9 dígitos)</label><input id="m_isss" value="${e?.isss||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,9)"></div>
-      <div><label>Carné SEMERC</label><input id="m_carne_semerc" value="${e?.carne_semerc||''}"></div>
+      <div><label>Carné SEMERC *</label><input id="m_carne_semerc" value="${e?.carne_semerc||''}"></div>
       <div class="full"><label>Cuenta (opcional)</label>
         ${comboHTML('m_cuenta', opcionesCuenta, e?.cuenta_id||'', cuentaSel?.nombre||'', 'Buscar cuenta...', 'actualizarSalasPorCuenta')}
       </div>
@@ -1170,22 +1184,21 @@ function openEmpForm(id){
         </select>
       </div>
       <div><label id="m_tarifaLabel">${e?.tipo_pago==='mensual'?'Salario mensual':'Salario por día'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
-      <div><label>Hora de entrada</label><select id="m_hora_entrada"><option value="">Selecciona...</option>${optsHoras}</select></div>
-      <div><label>Hora de salida</label><select id="m_hora_salida"><option value="">Selecciona...</option>${optsHoras}</select></div>
+      <div><label>Hora de entrada *</label><select id="m_hora_entrada"><option value="">Selecciona...</option>${optsHoras}</select></div>
+      <div><label>Hora de salida *</label><select id="m_hora_salida"><option value="">Selecciona...</option>${optsHoras}</select></div>
       <div class="full"><label>Días a trabajar</label><div>${checkboxesDias('m_dia_trabajo', diasTrabajo)}</div></div>
-      <div class="full"><label>Días de descanso</label><div>${checkboxesDias('m_dia_descanso', diasDescanso)}</div></div>
-      <div class="full"><label>Banco</label>
+      <div class="full"><label>Días de descanso *</label><div>${checkboxesDias('m_dia_descanso', diasDescanso)}</div></div>
+      <div class="full"><label>Banco *</label>
         ${comboHTML('m_banco', opcionesBanco, e?.banco_id||'', bancoSel?.nombre||'', 'Buscar banco...')}
         ${bancosActivos.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes bancos creados — ve a la pestaña "Bancos" y agrega el primero.</div>' : ''}
       </div>
-      <div><label>Número de cuenta</label><input id="m_numero_cuenta" value="${e?.numero_cuenta||''}" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"></div>
+      <div><label>Número de cuenta *</label><input id="m_numero_cuenta" value="${e?.numero_cuenta||''}" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"></div>
       <div class="full"><label>AFP</label>
         ${comboHTML('m_afp', opcionesAfp, e?.afp_id||'', afpSel?.nombre||'', 'Buscar AFP...')}
         ${afpsActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes AFP creadas — ve a la pestaña "AFP" y agrega la primera.</div>' : ''}
       </div>
       <div><label>Carné de SRS (manipulación de alimentos)</label><input id="m_carne_srs" value="${e?.carne_srs||''}" placeholder="Número o dejar vacío" oninput="document.getElementById('m_srs_fecha').disabled=!this.value; if(!this.value) document.getElementById('m_srs_fecha').value='';"></div>
       <div><label>Vencimiento del carné SRS</label><input id="m_srs_fecha" type="date" value="${e?.carne_srs_vencimiento||''}" ${e?.carne_srs ? '' : 'disabled'}></div>
-      <div><label>Carné de empleado</label><input id="m_carne_empleado" value="${e?.carne_empleado||''}" placeholder="Aún no emitido si está vacío"></div>
       <div class="full" style="margin-top:6px;">
         ${e?.fecha_baja
           ? `<div class="sub" style="background:#FBEAE8;color:var(--red);padding:10px 12px;border-radius:8px;">Este empleado fue dado de baja el ${e.fecha_baja}${nombreTipoRenuncia(e.tipo_renuncia_id) ? ' ('+nombreTipoRenuncia(e.tipo_renuncia_id)+')' : ''}. No se puede reactivar — si vuelve a trabajar contigo, crea un empleado nuevo para no perder el historial.</div>
@@ -1238,7 +1251,6 @@ async function submitEmpForm(id){
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
     afp_id: comboValor('m_afp'),
     carne_srs: val('m_carne_srs'), carne_srs_vencimiento: val('m_carne_srs') ? val('m_srs_fecha') : '',
-    carne_empleado: val('m_carne_empleado'),
     activo: checkboxActivo ? (checkboxActivo.checked ? 'true' : 'false') : 'false'
   };
   const existente = DB.empleados.find(x=>x.id===id);
@@ -1257,6 +1269,16 @@ async function submitEmpForm(id){
     rec.fecha_baja=''; rec.motivo_baja=''; rec.tipo_renuncia_id='';
   }
   if(!rec.nombre || !rec.apellido){ toast('Nombre y apellido son obligatorios','err'); return; }
+  if(!rec.fecha_ingreso){ toast('La fecha de ingreso es obligatoria','err'); return; }
+  if(!rec.banco_id || !rec.numero_cuenta){ toast('El banco y el número de cuenta son obligatorios','err'); return; }
+  if(!rec.telefono){ toast('El teléfono es obligatorio','err'); return; }
+  if(!rec.departamento){ toast('El departamento es obligatorio','err'); return; }
+  if(!rec.municipio){ toast('El municipio es obligatorio','err'); return; }
+  if(!rec.hora_entrada || !rec.hora_salida){ toast('El horario de entrada y salida son obligatorios','err'); return; }
+  if(!rec.dias_descanso){ toast('Elige al menos un día de descanso','err'); return; }
+  if(!rec.fecha_nacimiento){ toast('La fecha de nacimiento es obligatoria','err'); return; }
+  if(!rec.dui){ toast('El DUI es obligatorio','err'); return; }
+  if(!rec.carne_semerc){ toast('El carné SEMERC es obligatorio','err'); return; }
   const idx = DB.empleados.findIndex(x=>x.id===id);
   if(idx>=0) DB.empleados[idx] = rec; else DB.empleados.push(rec);
   closeModal();
@@ -2463,8 +2485,7 @@ const COLUMNAS_EMPLEADOS = [
       const dias = Math.round((new Date(e.carne_srs_vencimiento+'T00:00:00') - new Date(hoy+'T00:00:00')) / (1000*60*60*24));
       return `${e.carne_srs_vencimiento} (${dias<=0 ? 'Vencido' : 'Activo'})`;
     } },
-  { label:'Carné de empleado', value: e => e.carne_empleado||'' },
-  { label:'Estado', value: e => e.fecha_baja ? 'De baja' : (e.activo==='true' ? 'Activo' : 'Inactivo') }
+  { label:'Estado', value: e => { const est = estadoEmpleado(e); return est==='activo' ? 'Activo' : est==='baja_mes' ? 'Baja de mes' : 'Inactivo'; } }
 ];
 const COLUMNAS_HERRAMIENTAS = [
   { label:'Herramienta', value: h => h.nombre },
