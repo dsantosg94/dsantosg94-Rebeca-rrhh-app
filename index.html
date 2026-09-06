@@ -1158,8 +1158,8 @@ function openEmpForm(id){
   document.getElementById('modalBody').innerHTML = `
     <h3>${e?'Editar empleado':'Nuevo empleado'}</h3>
     <div class="form-grid">
-      <div><label>Nombre</label><input id="m_nombre" value="${e?.nombre||''}"></div>
-      <div><label>Apellido</label><input id="m_apellido" value="${e?.apellido||''}"></div>
+      <div><label>Nombre *</label><input id="m_nombre" value="${e?.nombre||''}"></div>
+      <div><label>Apellido *</label><input id="m_apellido" value="${e?.apellido||''}"></div>
       <div class="full"><label>Dirección</label><input id="m_direccion" value="${e?.direccion||''}"></div>
       <div><label>Departamento *</label><select id="m_departamento" onchange="actualizarMunicipios(this.value)"><option value="">Selecciona...</option>${optsDepartamento}</select></div>
       <div><label>Municipio *</label><select id="m_municipio"><option value="">Selecciona...</option>${optsMunicipio}</select></div>
@@ -1169,7 +1169,7 @@ function openEmpForm(id){
       <div><label>Fecha de ingreso *</label><input id="m_fingreso" type="date" value="${e?.fecha_ingreso||''}"></div>
       <div><label>DUI (9 dígitos) *</label><input id="m_dui" value="${e?.dui||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,9)"></div>
       <div><label>ISSS (9 dígitos)</label><input id="m_isss" value="${e?.isss||''}" maxlength="9" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,9)"></div>
-      <div><label>Carné SEMERC *</label><input id="m_carne_semerc" value="${e?.carne_semerc||''}"></div>
+      <div><label>Carné SEMERC</label><input id="m_carne_semerc" value="${e?.carne_semerc||''}"></div>
       <div class="full"><label>Cuenta (opcional)</label>
         ${comboHTML('m_cuenta', opcionesCuenta, e?.cuenta_id||'', cuentaSel?.nombre||'', 'Buscar cuenta...', 'actualizarSalasPorCuenta')}
       </div>
@@ -1186,7 +1186,7 @@ function openEmpForm(id){
       <div><label id="m_tarifaLabel">${e?.tipo_pago==='mensual'?'Salario mensual':'Salario por día'}</label><input id="m_tarifa" type="number" step="0.01" value="${e?.tarifa||''}"></div>
       <div><label>Hora de entrada *</label><select id="m_hora_entrada"><option value="">Selecciona...</option>${optsHoras}</select></div>
       <div><label>Hora de salida *</label><select id="m_hora_salida"><option value="">Selecciona...</option>${optsHoras}</select></div>
-      <div class="full"><label>Días a trabajar</label><div>${checkboxesDias('m_dia_trabajo', diasTrabajo)}</div></div>
+      <div class="full"><label>Días a trabajar *</label><div>${checkboxesDias('m_dia_trabajo', diasTrabajo)}</div></div>
       <div class="full"><label>Días de descanso *</label><div>${checkboxesDias('m_dia_descanso', diasDescanso)}</div></div>
       <div class="full"><label>Banco *</label>
         ${comboHTML('m_banco', opcionesBanco, e?.banco_id||'', bancoSel?.nombre||'', 'Buscar banco...')}
@@ -1275,10 +1275,25 @@ async function submitEmpForm(id){
   if(!rec.departamento){ toast('El departamento es obligatorio','err'); return; }
   if(!rec.municipio){ toast('El municipio es obligatorio','err'); return; }
   if(!rec.hora_entrada || !rec.hora_salida){ toast('El horario de entrada y salida son obligatorios','err'); return; }
+  if(!rec.dias_trabajo){ toast('Elige al menos un día a trabajar','err'); return; }
   if(!rec.dias_descanso){ toast('Elige al menos un día de descanso','err'); return; }
   if(!rec.fecha_nacimiento){ toast('La fecha de nacimiento es obligatoria','err'); return; }
   if(!rec.dui){ toast('El DUI es obligatorio','err'); return; }
-  if(!rec.carne_semerc){ toast('El carné SEMERC es obligatorio','err'); return; }
+
+  const yaExiste = (campo, etiqueta) => {
+    const valor = rec[campo];
+    if(!valor) return null;
+    const dup = DB.empleados.find(x=>x.id!==rec.id && x[campo]===valor);
+    return dup ? `Ya existe ${dup.nombre} ${dup.apellido} con ese ${etiqueta} (${valor})` : null;
+  };
+  for(const [campo, etiqueta] of [
+    ['dui','DUI'], ['telefono','teléfono'], ['isss','número de ISSS'],
+    ['carne_semerc','carné SEMERC'], ['numero_cuenta','número de cuenta'], ['carne_srs','carné SRS']
+  ]){
+    const error = yaExiste(campo, etiqueta);
+    if(error){ toast(error, 'err'); return; }
+  }
+
   const idx = DB.empleados.findIndex(x=>x.id===id);
   if(idx>=0) DB.empleados[idx] = rec; else DB.empleados.push(rec);
   closeModal();
