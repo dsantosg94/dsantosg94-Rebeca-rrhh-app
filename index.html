@@ -522,8 +522,8 @@
           <button class="btn btn-add" onclick="openAsisForm()">+ Marcar asistencia</button>
         </div>
         <div class="panel">
-          <h3 style="font-size:14px;margin-bottom:8px;">Sincronizar desde Google Form (automático)</h3>
-          <div class="sub" style="margin-bottom:8px;">Pega la URL del CSV publicado de la hoja de respuestas de tu Form. Cada vez que le des "Sincronizar", trae las marcas nuevas y arma la asistencia sola.</div>
+          <h3 style="font-size:14px;margin-bottom:8px;">Sincronizar asistencia por WhatsApp (automático)</h3>
+          <div class="sub" style="margin-bottom:8px;">Pega la URL del CSV publicado (columnas: fecha_hora, teléfono, mensaje). Reconoce "0000 INICIO" (entrada), "1111 SALIDA" (salida), "0000 PERMISO" (completa el día normal solo) y "0000 ISSS" (completa el día y te avisa para que ingreses la incapacidad a mano).</div>
           <div class="toolbar">
             <input type="text" id="gformUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" style="flex:1;min-width:280px;">
             <button class="btn btn-add" onclick="sincronizarGoogleForm()">Sincronizar ahora</button>
@@ -632,7 +632,7 @@ const BRANCH = 'main';
 const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv', viaticos:'data/viaticos.csv', registro_viaticos:'data/registro_viaticos.csv' };
 const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss','viatico_id'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
-const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
+const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas','nota'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
 const SUP_H = ['id','nombre','apellido','telefono','correo','sala_id','cuenta_id'];
 const SALA_H = ['id','nombre','cuenta_id','activa'];
@@ -1575,7 +1575,7 @@ async function submitHerrForm(){
   renderHerramientas();
 }
 
-/* ============ Sincronizar desde Google Form ============ */
+/* ============ Sincronizar asistencia por WhatsApp ============ */
 const GFORM_URL_KEY = 'rebeca_gform_url';
 
 function pad2(n){ return String(n).padStart(2,'0'); }
@@ -1592,19 +1592,37 @@ function parseTimestamp(str){
   return null;
 }
 
-function detectarColumnas(rows){
+/* Detecta cuál columna trae la fecha, el teléfono y el mensaje.
+   Primero intenta por el NOMBRE del encabezado (fecha_hora/telefono/mensaje, como en la guía).
+   Si no los encuentra por nombre, usa el respaldo anterior (adivinar por el contenido). */
+function detectarColumnasWhatsapp(rows){
   const headers = Object.keys(rows[0] || {});
   if(headers.length < 3) return null;
-  const tsCol = headers[0];
-  let tipoCol = null;
-  for(const h of headers.slice(1)){
-    const vals = rows.map(r => String(r[h]||'').trim().toLowerCase());
-    const soloTipo = vals.every(v => v==='' || v==='entrada' || v==='salida');
-    if(soloTipo && vals.some(v=>v)) { tipoCol = h; break; }
+  const norm = h => h.trim().toLowerCase();
+
+  const tsColPorNombre = headers.find(h => norm(h).includes('fecha'));
+  const telColPorNombre = headers.find(h => norm(h).includes('telefono') || norm(h).includes('teléfono') || norm(h).includes('phone'));
+  const msgColPorNombre = headers.find(h => norm(h).includes('mensaje') || norm(h).includes('message'));
+
+  if(telColPorNombre && msgColPorNombre){
+    return { tsCol: tsColPorNombre || headers[0], telCol: telColPorNombre, msgCol: msgColPorNombre };
   }
-  if(!tipoCol) return null;
-  const nombreCol = headers.slice(1).find(h => h!==tipoCol);
-  return { tsCol, tipoCol, nombreCol };
+
+  // Respaldo: adivinar por el contenido (por si los encabezados no coinciden con la guía)
+  const tsCol = headers[0];
+  const resto = headers.slice(1);
+  let telCol = null;
+  for(const h of resto){
+    const vals = rows.map(r => String(r[h]||'').trim()).filter(v=>v);
+    if(vals.length===0) continue;
+    // Acepta también valores con el prefijo "whatsapp:" que agrega Twilio
+    const pareceTelefono = vals.every(v => /^(whatsapp:)?[\d+\-\s()]{6,20}$/i.test(v));
+    if(pareceTelefono){ telCol = h; break; }
+  }
+  if(!telCol) return null;
+  const msgCol = resto.find(h => h!==telCol);
+  if(!msgCol) return null;
+  return { tsCol, telCol, msgCol };
 }
 
 async function sincronizarGoogleForm(){
@@ -1613,61 +1631,100 @@ async function sincronizarGoogleForm(){
   try{ localStorage.setItem(GFORM_URL_KEY, url); }catch(e){}
 
   const resEl = document.getElementById('syncResult');
-  resEl.textContent = 'Descargando respuestas...';
+  resEl.textContent = 'Descargando mensajes...';
   try{
     const res = await fetch(url + (url.includes('?')?'&':'?') + '_ts=' + Date.now());
     if(!res.ok) throw new Error('No se pudo descargar el CSV (HTTP '+res.status+'). Revisa que el link esté publicado como CSV.');
     const text = await res.text();
     const rows = Papa.parse(text, { header:true, skipEmptyLines:true }).data;
-    if(rows.length===0){ resEl.textContent='El formulario todavía no tiene respuestas.'; return; }
+    if(rows.length===0){ resEl.textContent='Todavía no hay mensajes registrados.'; return; }
 
-    const cols = detectarColumnas(rows);
-    if(!cols){ resEl.textContent='No se reconoce el formato del CSV. Revisa que el Form tenga una columna de Nombre y otra con solo "Entrada"/"Salida".'; return; }
+    const cols = detectarColumnasWhatsapp(rows);
+    if(!cols){ resEl.textContent='No se reconoce el formato del CSV. Revisa que tenga columnas de fecha/hora, teléfono y mensaje.'; return; }
 
-    const grupos = {};
+    const gruposEntradaSalida = {};
+    const diasCompletarSolos = []; // permiso / isss
+    const pendientesIncapacidad = [];
     const sinCoincidencia = new Set();
+    const noReconocidos = [];
     let sinFecha = 0;
 
     rows.forEach(r=>{
       const ts = parseTimestamp(r[cols.tsCol]);
       if(!ts){ sinFecha++; return; }
-      const nombreTxt = String(r[cols.nombreCol]||'').trim();
-      const tipo = String(r[cols.tipoCol]||'').trim().toLowerCase();
-      const emp = DB.empleados.find(e => (e.nombre+' '+e.apellido).trim().toLowerCase() === nombreTxt.toLowerCase());
-      if(!emp){ sinCoincidencia.add(nombreTxt); return; }
+
+      const telefonoCrudo = String(r[cols.telCol]||'').replace(/\D/g,'');
+      const telefono8 = telefonoCrudo.slice(-8); // últimos 8 dígitos, sin importar código de país
+      const emp = DB.empleados.find(e => e.telefono === telefono8);
+      if(!emp){ sinCoincidencia.add(telefonoCrudo || '(vacío)'); return; }
+
+      const mensaje = String(r[cols.msgCol]||'').trim();
+      const partes = mensaje.split(/\s+/);
+      const codigo = (partes[0]||'').toUpperCase();
+      const palabra = (partes[1]||'').toUpperCase();
+
       const fecha = `${ts.getFullYear()}-${pad2(ts.getMonth()+1)}-${pad2(ts.getDate())}`;
       const hora = `${pad2(ts.getHours())}:${pad2(ts.getMinutes())}`;
       const key = emp.id + '|' + fecha;
-      if(!grupos[key]) grupos[key] = { empId: emp.id, fecha, entradas:[], salidas:[] };
-      if(tipo==='entrada') grupos[key].entradas.push(hora);
-      else if(tipo==='salida') grupos[key].salidas.push(hora);
+
+      if(codigo==='0000' && palabra==='INICIO'){
+        if(!gruposEntradaSalida[key]) gruposEntradaSalida[key] = { empId: emp.id, fecha, entradas:[], salidas:[] };
+        gruposEntradaSalida[key].entradas.push(hora);
+      } else if(codigo==='1111' && palabra==='SALIDA'){
+        if(!gruposEntradaSalida[key]) gruposEntradaSalida[key] = { empId: emp.id, fecha, entradas:[], salidas:[] };
+        gruposEntradaSalida[key].salidas.push(hora);
+      } else if(codigo==='0000' && palabra==='PERMISO'){
+        diasCompletarSolos.push({ empId: emp.id, fecha, nota:'Permiso (día completado automático)' });
+      } else if(codigo==='0000' && palabra==='ISSS'){
+        diasCompletarSolos.push({ empId: emp.id, fecha, nota:'ISSS (día completado automático)' });
+        pendientesIncapacidad.push({ emp, fecha });
+      } else {
+        noReconocidos.push(`${emp.nombre} ${emp.apellido}: "${mensaje.slice(0,40)}"`);
+      }
     });
 
-    let completos=0, incompletos=0;
-    Object.values(grupos).forEach(g=>{
+    let completos=0, incompletos=0, diasAuto=0, sinHorarioDefinido=0;
+
+    Object.values(gruposEntradaSalida).forEach(g=>{
       if(g.entradas.length===0 || g.salidas.length===0){ incompletos++; return; }
       const entrada = g.entradas.sort()[0];
       const salida = g.salidas.sort().slice(-1)[0];
       const horas = calcHoras(entrada, salida);
       const existente = DB.asistencia.find(a=>a.empleado_id===g.empId && a.fecha===g.fecha);
       if(existente){
-        existente.hora_entrada = entrada; existente.hora_salida = salida; existente.horas_trabajadas = horas;
+        existente.hora_entrada = entrada; existente.hora_salida = salida; existente.horas_trabajadas = horas; existente.nota = '';
       } else {
-        DB.asistencia.push({ id: uid(), empleado_id: g.empId, fecha: g.fecha, hora_entrada: entrada, hora_salida: salida, horas_trabajadas: horas });
+        DB.asistencia.push({ id: uid(), empleado_id: g.empId, fecha: g.fecha, hora_entrada: entrada, hora_salida: salida, horas_trabajadas: horas, nota:'' });
       }
       completos++;
     });
 
-    if(completos>0){
-      await saveAsistencia(`Sincroniza ${completos} marcas desde Google Form`);
+    diasCompletarSolos.forEach(d=>{
+      const emp = DB.empleados.find(e=>e.id===d.empId);
+      if(!emp || !emp.hora_entrada || !emp.hora_salida){ sinHorarioDefinido++; return; }
+      const horas = calcHoras(emp.hora_entrada, emp.hora_salida);
+      const existente = DB.asistencia.find(a=>a.empleado_id===d.empId && a.fecha===d.fecha);
+      if(existente){
+        existente.hora_entrada = emp.hora_entrada; existente.hora_salida = emp.hora_salida; existente.horas_trabajadas = horas; existente.nota = d.nota;
+      } else {
+        DB.asistencia.push({ id: uid(), empleado_id: d.empId, fecha: d.fecha, hora_entrada: emp.hora_entrada, hora_salida: emp.hora_salida, horas_trabajadas: horas, nota: d.nota });
+      }
+      diasAuto++;
+    });
+
+    if(completos>0 || diasAuto>0){
+      await saveAsistencia(`Sincroniza ${completos+diasAuto} día(s) desde WhatsApp`);
     }
 
-    let msg = `${completos} día(s) sincronizados ✓`;
+    let msg = `${completos} entrada/salida sincronizada(s) ✓ · ${diasAuto} día(s) completados por permiso/ISSS ✓`;
     if(incompletos>0) msg += ` · ${incompletos} con solo entrada o solo salida (esperando la otra marca)`;
-    if(sinCoincidencia.size>0) msg += ` · sin coincidir: ${[...sinCoincidencia].join(', ')}`;
+    if(sinHorarioDefinido>0) msg += ` · ${sinHorarioDefinido} sin horario definido en su perfil (no se pudo completar el día)`;
+    if(pendientesIncapacidad.length>0) msg += ` · ⚠️ Recuerda ingresar la incapacidad a mano en "Incapacidades" para: ${pendientesIncapacidad.map(p=>p.emp.nombre+' '+p.emp.apellido+' ('+p.fecha+')').join(', ')}`;
+    if(sinCoincidencia.size>0) msg += ` · sin coincidir por teléfono: ${[...sinCoincidencia].join(', ')}`;
+    if(noReconocidos.length>0) msg += ` · ${noReconocidos.length} mensaje(s) no reconocido(s): ${noReconocidos.slice(0,5).join(' · ')}`;
     if(sinFecha>0) msg += ` · ${sinFecha} fila(s) con fecha ilegible`;
     resEl.textContent = msg;
-    toast(completos>0 ? 'Asistencia sincronizada ✓' : 'Nada nuevo para sincronizar','ok');
+    toast((completos+diasAuto)>0 ? 'Asistencia sincronizada ✓' : 'Nada nuevo para sincronizar','ok');
     renderAsistencia();
   }catch(e){
     resEl.textContent = '';
@@ -1698,7 +1755,7 @@ function renderAsistencia(){
   wrap.innerHTML = `<div class="tickets">${rows.map(r=>{
     const emp = DB.empleados.find(e=>e.id===r.empleado_id);
     return `<div class="ticket">
-      <div class="emp">${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}<span class="sub">${r.fecha}</span></div>
+      <div class="emp">${emp ? emp.nombre+' '+emp.apellido : '(empleado no encontrado)'}<span class="sub">${r.fecha}${r.nota ? ' · <strong style="color:var(--amber);">'+r.nota+'</strong>' : ''}</span></div>
       <div class="time"><span class="lab">Entrada</span>${r.hora_entrada}</div>
       <div class="time"><span class="lab">Salida</span>${r.hora_salida}</div>
       <div class="horas">${r.horas_trabajadas}h</div>
@@ -1727,7 +1784,7 @@ function openAsisForm(){
 async function submitAsisForm(){
   const entrada = val('a_entrada'), salida = val('a_salida');
   if(!entrada || !salida){ toast('Faltan la hora de entrada o salida','err'); return; }
-  const rec = { id: uid(), empleado_id: val('a_emp'), fecha: val('a_fecha'), hora_entrada: entrada, hora_salida: salida, horas_trabajadas: calcHoras(entrada,salida) };
+  const rec = { id: uid(), empleado_id: val('a_emp'), fecha: val('a_fecha'), hora_entrada: entrada, hora_salida: salida, horas_trabajadas: calcHoras(entrada,salida), nota:'' };
   DB.asistencia.push(rec);
   closeModal();
   try{ await saveAsistencia(`Marca asistencia ${rec.fecha}`); toast('Guardado en GitHub ✓','ok'); }
@@ -1754,7 +1811,7 @@ async function importBulkAsistencia(){
     const [nombreTxt, fecha, entrada, salida] = parts;
     const emp = DB.empleados.find(e => (e.nombre+' '+e.apellido).toLowerCase() === nombreTxt.toLowerCase() || e.apellido.toLowerCase()===nombreTxt.toLowerCase() || e.id===nombreTxt);
     if(!emp || !/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{1,2}:\d{2}$/.test(entrada) || !/^\d{1,2}:\d{2}$/.test(salida)){ fail++; return; }
-    DB.asistencia.push({ id: uid(), empleado_id: emp.id, fecha, hora_entrada: entrada, hora_salida: salida, horas_trabajadas: calcHoras(entrada,salida) });
+    DB.asistencia.push({ id: uid(), empleado_id: emp.id, fecha, hora_entrada: entrada, hora_salida: salida, horas_trabajadas: calcHoras(entrada,salida), nota:'' });
     ok++;
   });
   if(ok>0){
