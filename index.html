@@ -194,6 +194,7 @@
       <div class="nav-children" id="grupo-empleados">
         <div class="nav-item nav-sub" data-tab="afps" onclick="switchTab('afps')">↳ AFP</div>
         <div class="nav-item nav-sub" data-tab="bancos" onclick="switchTab('bancos')">↳ Bancos</div>
+        <div class="nav-item nav-sub" data-tab="viaticos" onclick="switchTab('viaticos')">↳ Viáticos</div>
         <div class="nav-item nav-sub" data-tab="herramientas" onclick="switchTab('herramientas')">↳ Herramientas</div>
         <div class="nav-item nav-sub" data-tab="incapacidades" onclick="switchTab('incapacidades')">↳ Incapacidades</div>
         <div class="nav-item nav-sub" data-tab="renuncias" onclick="switchTab('renuncias')">↳ Renuncias</div>
@@ -390,6 +391,31 @@
         </div>
       </div>
 
+      <!-- VIATICOS -->
+      <div class="tab-section" id="tab-viaticos">
+        <div class="topbar">
+          <div><h2>Viáticos</h2><div class="sub">Tipos de viático y su monto, para asignar a los empleados. Todavía no afecta el cálculo de planilla</div></div>
+          <button class="btn btn-add" onclick="openViaticoForm()">+ Nuevo viático</button>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div></div>
+            <div class="toolbar">
+              <button class="btn btn-sm" onclick="accionExportar('viaticos','copiar')">Copiar</button>
+              <button class="btn btn-sm" onclick="accionExportar('viaticos','excel')">Excel</button>
+              <button class="btn btn-sm" onclick="accionExportar('viaticos','csv')">CSV</button>
+              <button class="btn btn-sm" onclick="accionExportar('viaticos','pdf')">PDF</button>
+            </div>
+          </div>
+          <div class="toolbar" style="margin-bottom:12px;padding:10px 12px;background:#F5F7FA;border-radius:8px;">
+            <button class="btn" onclick="accionViaticoSeleccion('editar')">Editar</button>
+            <button class="btn btn-danger" onclick="accionViaticoSeleccion('eliminar')">Eliminar</button>
+            <span class="sub" id="viaticoSeleccionInfo">Ningún viático seleccionado</span>
+          </div>
+          <div id="viaticosTableWrap" class="table-scroll"></div>
+        </div>
+      </div>
+
       <!-- HERRAMIENTAS -->
       <div class="tab-section" id="tab-herramientas">
         <div class="topbar">
@@ -564,8 +590,8 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
 const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
-const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
+const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv', viaticos:'data/viaticos.csv' };
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss','viatico_id'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
@@ -573,6 +599,7 @@ const SUP_H = ['id','nombre','apellido','telefono','correo','sala_id','cuenta_id
 const SALA_H = ['id','nombre','cuenta_id','activa'];
 const AFP_H = ['id','nombre','activa'];
 const BANCO_H = ['id','nombre','activo'];
+const VIATICO_H = ['id','nombre','monto','activo'];
 const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 function generarHorasDia(){
   const horas=[];
@@ -605,8 +632,8 @@ const TIPO_RENUNCIA_H = ['id','nombre','activo'];
 
 const TOKEN_KEY = 'rebeca_gh_token';
 let TOKEN = '';
-let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[], tipos_renuncia:[], bancos:[] };
-let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null, tipos_renuncia:null, bancos:null };
+let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[], tipos_renuncia:[], bancos:[], viaticos:[] };
+let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null, tipos_renuncia:null, bancos:null, viaticos:null };
 
 function storageAvailable(){
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; }
@@ -732,11 +759,11 @@ async function connect(silent){
   if(!t){ if(!silent){ errEl.textContent='Pega tu token primero.'; errEl.style.display='block'; } return; }
   TOKEN = t;
   try{
-    const [emp, herr, asis, cta, sup, sal, afp, inc, tr, bco] = await Promise.all([
+    const [emp, herr, asis, cta, sup, sal, afp, inc, tr, bco, via] = await Promise.all([
       ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia),
       ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores), ghGetFileOpcional(FILES.salas),
       ghGetFileOpcional(FILES.afps), ghGetFileOpcional(FILES.incapacidades), ghGetFileOpcional(FILES.tipos_renuncia),
-      ghGetFileOpcional(FILES.bancos)
+      ghGetFileOpcional(FILES.bancos), ghGetFileOpcional(FILES.viaticos)
     ]);
     DB.empleados = parseCSV(emp.text); SHA.empleados = emp.sha;
     DB.herramientas = parseCSV(herr.text); SHA.herramientas = herr.sha;
@@ -748,6 +775,7 @@ async function connect(silent){
     DB.incapacidades = parseCSV(inc.text); SHA.incapacidades = inc.sha;
     DB.tipos_renuncia = parseCSV(tr.text); SHA.tipos_renuncia = tr.sha;
     DB.bancos = parseCSV(bco.text); SHA.bancos = bco.sha;
+    DB.viaticos = parseCSV(via.text); SHA.viaticos = via.sha;
 
     const remember = document.getElementById('rememberToken').checked;
     if(remember && storageAvailable()){
@@ -757,7 +785,7 @@ async function connect(silent){
     document.getElementById('gate').style.display='none';
     document.getElementById('app').style.display='block';
     populateFilters();
-    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas(); renderAfps(); renderIncapacidades(); renderTiposRenuncia(); renderBancos();
+    renderEmpleados(); renderHerramientas(); renderAsistencia(); renderCuentas(); renderSupervisores(); renderRenuncias(); renderSalas(); renderAfps(); renderIncapacidades(); renderTiposRenuncia(); renderBancos(); renderViaticos();
     try{
       const savedUrl = localStorage.getItem(GFORM_URL_KEY);
       if(savedUrl) document.getElementById('gformUrl').value = savedUrl;
@@ -804,6 +832,9 @@ async function saveTiposRenuncia(msg){
 async function saveBancos(msg){
   SHA.bancos = await ghPutFile(FILES.bancos, toCSV(BANCO_H, DB.bancos), SHA.bancos, msg);
 }
+async function saveViaticos(msg){
+  SHA.viaticos = await ghPutFile(FILES.viaticos, toCSV(VIATICO_H, DB.viaticos), SHA.viaticos, msg);
+}
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
@@ -833,7 +864,7 @@ function pillCarneSRS(e){
 
 /* ============ Tabs ============ */
 const GRUPOS_NAV = {
-  empleados: ['afps','bancos','herramientas','incapacidades','renuncias','tipos_renuncia'],
+  empleados: ['afps','bancos','viaticos','herramientas','incapacidades','renuncias','tipos_renuncia'],
   cuentas: ['salas','supervisores']
 };
 
@@ -998,7 +1029,7 @@ function renderEmpleados(){
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; actualizarBarraEmp(); return; }
   const todosMarcados = rows.length>0 && rows.every(e=>EMP_SELECCIONADOS.has(e.id));
   wrap.innerHTML = `<table><thead><tr>
-    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Edad</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Carné SRS</th><th>Vence SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th>
+    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Edad</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Carné SRS</th><th>Vence SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Viático</th><th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
@@ -1024,6 +1055,7 @@ function renderEmpleados(){
       <td>${pillCarneSRS(e)}</td>
       <td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
+      <td>${e.viatico_id ? nombreViatico(e.viatico_id) : '—'}</td>
       <td>${pillEstadoEmpleado(e)}</td>
     </tr>`).join('')}
   </tbody></table>`;
@@ -1145,6 +1177,10 @@ function openEmpForm(id){
   const opcionesBanco = bancosActivos.map(b=>({ id:b.id, label:b.nombre }));
   const bancoSel = e?.banco_id ? bancosActivos.find(b=>b.id===e.banco_id) : null;
 
+  const viaticosActivos = DB.viaticos.filter(v=>v.activo!=='false');
+  const opcionesViatico = viaticosActivos.map(v=>({ id:v.id, label: `${v.nombre} ($${Number(v.monto||0).toLocaleString()})` }));
+  const viaticoSel = e?.viatico_id ? viaticosActivos.find(v=>v.id===e.viatico_id) : null;
+
   const optsDepartamento = Object.keys(DEPARTAMENTOS_SV).map(d=>`<option value="${d}" ${e?.departamento===d?'selected':''}>${d}</option>`).join('');
   const municipiosIniciales = e?.departamento ? (DEPARTAMENTOS_SV[e.departamento]||[]) : [];
   const optsMunicipio = municipiosIniciales.map(m=>`<option value="${m}" ${e?.municipio===m?'selected':''}>${m}</option>`).join('');
@@ -1196,6 +1232,10 @@ function openEmpForm(id){
       <div class="full"><label>AFP</label>
         ${comboHTML('m_afp', opcionesAfp, e?.afp_id||'', afpSel?.nombre||'', 'Buscar AFP...')}
         ${afpsActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes AFP creadas — ve a la pestaña "AFP" y agrega la primera.</div>' : ''}
+      </div>
+      <div class="full"><label>Viático (opcional)</label>
+        ${comboHTML('m_viatico', opcionesViatico, e?.viatico_id||'', viaticoSel?.nombre||'', 'Buscar viático...')}
+        ${viaticosActivos.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes viáticos creados — ve a "Empleados → Viáticos" y agrega el primero.</div>' : ''}
       </div>
       <div><label>Carné de SRS (manipulación de alimentos)</label><input id="m_carne_srs" value="${e?.carne_srs||''}" placeholder="Número o dejar vacío" oninput="document.getElementById('m_srs_fecha').disabled=!this.value; if(!this.value) document.getElementById('m_srs_fecha').value='';"></div>
       <div><label>Vencimiento del carné SRS</label><input id="m_srs_fecha" type="date" value="${e?.carne_srs_vencimiento||''}" ${e?.carne_srs ? '' : 'disabled'}></div>
@@ -1249,7 +1289,7 @@ async function submitEmpForm(id){
     empresa_cliente: nombreCuenta(cuentaId),
     es_supervisor: 'false',
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
-    afp_id: comboValor('m_afp'),
+    afp_id: comboValor('m_afp'), viatico_id: comboValor('m_viatico'),
     carne_srs: val('m_carne_srs'), carne_srs_vencimiento: val('m_carne_srs') ? val('m_srs_fecha') : '',
     activo: checkboxActivo ? (checkboxActivo.checked ? 'true' : 'false') : 'false'
   };
@@ -2121,6 +2161,82 @@ async function submitBancoForm(id){
   renderBancos();
 }
 
+/* ============ VIATICOS ============ */
+function nombreViatico(id){
+  const v = DB.viaticos.find(x=>x.id===id);
+  return v ? `${v.nombre} ($${Number(v.monto||0).toLocaleString()})` : '';
+}
+const VIATICO_SELECCIONADOS = new Set();
+function renderViaticos(){
+  const wrap = document.getElementById('viaticosTableWrap');
+  if(DB.viaticos.length===0){ wrap.innerHTML='<div class="empty-state">Sin viáticos todavía. Agrega el primero con "+ Nuevo viático".</div>'; actualizarBarraViatico(); return; }
+  const todosMarcados = DB.viaticos.every(v=>VIATICO_SELECCIONADOS.has(v.id));
+  wrap.innerHTML = `<table><thead><tr><th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosViatico(this.checked)"></th><th>Tipo de viático</th><th>Monto</th><th>Estado</th></tr></thead><tbody>
+  ${DB.viaticos.map(v=>`<tr>
+    <td class="col-actions"><input type="checkbox" ${VIATICO_SELECCIONADOS.has(v.id)?'checked':''} onchange="toggleViaticoSeleccion('${v.id}', this.checked)"></td>
+    <td><strong>${v.nombre}</strong></td>
+    <td class="mono">$${Number(v.monto||0).toLocaleString(undefined,{minimumFractionDigits:2})}</td>
+    <td>${v.activo!=='false' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>'}</td>
+  </tr>`).join('')}
+  </tbody></table>`;
+  actualizarBarraViatico();
+}
+function toggleViaticoSeleccion(id, checked){ checked ? VIATICO_SELECCIONADOS.add(id) : VIATICO_SELECCIONADOS.delete(id); actualizarBarraViatico(); }
+function toggleTodosViatico(checked){ DB.viaticos.forEach(v => checked ? VIATICO_SELECCIONADOS.add(v.id) : VIATICO_SELECCIONADOS.delete(v.id)); renderViaticos(); }
+function actualizarBarraViatico(){
+  const info = document.getElementById('viaticoSeleccionInfo'); if(!info) return;
+  const n = VIATICO_SELECCIONADOS.size;
+  info.textContent = n===0 ? 'Ningún viático seleccionado' : (n===1 ? '1 viático seleccionado' : `${n} viáticos seleccionados`);
+}
+function accionViaticoSeleccion(accion){
+  const ids = [...VIATICO_SELECCIONADOS];
+  if(ids.length===0){ toast('Selecciona al menos un viático primero','err'); return; }
+  if(accion==='editar'){
+    if(ids.length>1){ toast('Selecciona solo un viático para editar','err'); return; }
+    openViaticoForm(ids[0]);
+  } else if(accion==='eliminar'){
+    eliminarViaticosMultiple(ids);
+  }
+}
+async function eliminarViaticosMultiple(ids){
+  const seleccionados = ids.map(id=>DB.viaticos.find(v=>v.id===id)).filter(Boolean);
+  const enUso = seleccionados.filter(v=>DB.empleados.some(e=>e.viatico_id===v.id));
+  if(enUso.length>0){ toast(`No se puede eliminar: hay empleados con este viático asignado: ${enUso.map(v=>v.nombre).join(', ')}`,'err'); return; }
+  if(!confirm(`¿Eliminar ${seleccionados.length>1?seleccionados.length+' viáticos':seleccionados[0].nombre}?`)) return;
+  DB.viaticos = DB.viaticos.filter(v=>!ids.includes(v.id));
+  ids.forEach(id=>VIATICO_SELECCIONADOS.delete(id));
+  try{ await saveViaticos(`Elimina ${ids.length} viático(s)`); toast('Eliminado(s) ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderViaticos();
+}
+
+function openViaticoForm(id){
+  const v = id ? DB.viaticos.find(x=>x.id===id) : null;
+  document.getElementById('modalBody').innerHTML = `
+    <h3>${v?'Editar viático':'Nuevo viático'}</h3>
+    <div class="form-grid">
+      <div class="full"><label>Tipo de viático</label><input id="via_nombre" value="${v?.nombre||''}" placeholder="Transporte, alimentación, hospedaje..."></div>
+      <div><label>Monto (USD)</label><input id="via_monto" type="number" step="0.01" value="${v?.monto||''}"></div>
+      <div class="full"><label class="check-row"><input type="checkbox" id="via_activo" ${v && v.activo==='false' ? '' : 'checked'}> Activo</label></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-add" onclick="submitViaticoForm('${id||''}')">Guardar</button>
+    </div>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+async function submitViaticoForm(id){
+  const rec = { id: id || uid(), nombre: val('via_nombre'), monto: val('via_monto'), activo: document.getElementById('via_activo').checked ? 'true' : 'false' };
+  if(!rec.nombre){ toast('El tipo de viático es obligatorio','err'); return; }
+  const idx = DB.viaticos.findIndex(x=>x.id===id);
+  if(idx>=0) DB.viaticos[idx] = rec; else DB.viaticos.push(rec);
+  closeModal();
+  try{ await saveViaticos(idx>=0?`Actualiza viático ${rec.nombre}`:`Agrega viático ${rec.nombre}`); toast('Guardado en GitHub ✓','ok'); }
+  catch(e){ toast('No se pudo guardar: '+e.message,'err'); }
+  renderViaticos();
+}
+
 /* ============ TIPOS DE RENUNCIA ============ */
 function nombreTipoRenuncia(id){
   const t = DB.tipos_renuncia.find(x=>x.id===id);
@@ -2500,6 +2616,7 @@ const COLUMNAS_EMPLEADOS = [
       const dias = Math.round((new Date(e.carne_srs_vencimiento+'T00:00:00') - new Date(hoy+'T00:00:00')) / (1000*60*60*24));
       return `${e.carne_srs_vencimiento} (${dias<=0 ? 'Vencido' : 'Activo'})`;
     } },
+  { label:'Viático', value: e => e.viatico_id ? nombreViatico(e.viatico_id) : '' },
   { label:'Estado', value: e => { const est = estadoEmpleado(e); return est==='activo' ? 'Activo' : est==='baja_mes' ? 'Baja de mes' : 'Inactivo'; } }
 ];
 const COLUMNAS_HERRAMIENTAS = [
@@ -2558,6 +2675,11 @@ const COLUMNAS_BANCOS = [
   { label:'Nombre', value: b => b.nombre||'' },
   { label:'Estado', value: b => b.activo!=='false' ? 'Activo' : 'Inactivo' }
 ];
+const COLUMNAS_VIATICOS = [
+  { label:'Tipo de viático', value: v => v.nombre||'' },
+  { label:'Monto', value: v => v.monto||'' },
+  { label:'Estado', value: v => v.activo!=='false' ? 'Activo' : 'Inactivo' }
+];
 
 function accionExportar(seccion, tipo){
   let rows, columnas, filename, titulo;
@@ -2578,6 +2700,7 @@ function accionExportar(seccion, tipo){
   else if(seccion==='incapacidades'){ rows = obtenerIncapacidadesFiltradas(); columnas = COLUMNAS_INCAPACIDADES; filename='incapacidades'; titulo='Incapacidades'; }
   else if(seccion==='tipos_renuncia'){ rows = DB.tipos_renuncia.slice(); columnas = COLUMNAS_TIPOS_RENUNCIA; filename='tipos_renuncia'; titulo='Tipos de renuncia'; }
   else if(seccion==='bancos'){ rows = DB.bancos.slice(); columnas = COLUMNAS_BANCOS; filename='bancos'; titulo='Bancos'; }
+  else if(seccion==='viaticos'){ rows = DB.viaticos.slice(); columnas = COLUMNAS_VIATICOS; filename='viaticos'; titulo='Viáticos'; }
   else return;
 
   if(rows.length===0){ toast('No hay filas para exportar con los filtros actuales','err'); return; }
@@ -2594,7 +2717,7 @@ function closeModal(){
   document.getElementById('modalBody').innerHTML='';
   EMP_SELECCIONADOS.clear(); CUENTA_SELECCIONADOS.clear(); SALA_SELECCIONADOS.clear();
   SUP_SELECCIONADOS.clear(); AFP_SELECCIONADOS.clear(); HERR_SELECCIONADOS.clear(); INCAP_SELECCIONADOS.clear();
-  TIPO_RENUNCIA_SELECCIONADOS.clear(); BANCO_SELECCIONADOS.clear();
+  TIPO_RENUNCIA_SELECCIONADOS.clear(); BANCO_SELECCIONADOS.clear(); VIATICO_SELECCIONADOS.clear();
   refrescarPestanaActiva();
 }
 function refrescarPestanaActiva(){
@@ -2607,6 +2730,7 @@ function refrescarPestanaActiva(){
   else if(tab==='supervisores') renderSupervisores();
   else if(tab==='afps') renderAfps();
   else if(tab==='bancos') renderBancos();
+  else if(tab==='viaticos') renderViaticos();
   else if(tab==='herramientas') renderHerramientas();
   else if(tab==='incapacidades') renderIncapacidades();
   else if(tab==='renuncias') renderRenuncias();
