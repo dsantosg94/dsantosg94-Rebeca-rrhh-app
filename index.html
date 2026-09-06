@@ -817,6 +817,19 @@ function calcularEdad(fechaNacimiento){
   return edad;
 }
 
+function pillCarneSRS(e){
+  if(!e.carne_srs) return '—';
+  if(!e.carne_srs_vencimiento) return '<span class="pill pill-gray">Sin fecha</span>';
+  const hoy = new Date().toISOString().slice(0,10);
+  const msPorDia = 1000*60*60*24;
+  const diasRestantes = Math.round((new Date(e.carne_srs_vencimiento+'T00:00:00') - new Date(hoy+'T00:00:00')) / msPorDia);
+  if(diasRestantes <= 0) return `<span class="pill pill-red">Vencido ${e.carne_srs_vencimiento}</span>`;
+  if(diasRestantes <= 15) return `<span class="pill pill-red">Activo · vence ${e.carne_srs_vencimiento}</span>`;
+  if(diasRestantes <= 30) return `<span class="pill pill-amber">Activo · vence ${e.carne_srs_vencimiento}</span>`;
+  if(diasRestantes <= 60) return `<span class="pill pill-yellow">Activo · vence ${e.carne_srs_vencimiento}</span>`;
+  return `<span class="pill pill-green">Activo · vence ${e.carne_srs_vencimiento}</span>`;
+}
+
 /* ============ Tabs ============ */
 const GRUPOS_NAV = {
   empleados: ['afps','bancos','herramientas','incapacidades','renuncias','tipos_renuncia'],
@@ -994,7 +1007,7 @@ function renderEmpleados(){
       <td>${nombreBanco(e.banco_id)||'—'}</td>
       <td class="mono">${e.numero_cuenta||'—'}</td>
       <td class="mono">${e.carne_srs||'—'}</td>
-      <td class="mono">${e.carne_srs_vencimiento||'—'}</td>
+      <td>${pillCarneSRS(e)}</td>
       <td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
       <td>${e.fecha_baja ? '<span class="pill pill-red">De baja</span>' : (e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>')}</td>
@@ -2444,7 +2457,12 @@ const COLUMNAS_EMPLEADOS = [
   { label:'Tarifa', value: e => e.tarifa||'' },
   { label:'AFP', value: e => { const a = DB.afps.find(x=>x.id===e.afp_id); return a ? a.nombre : ''; } },
   { label:'Carné SRS', value: e => e.carne_srs||'' },
-  { label:'Vencimiento SRS', value: e => e.carne_srs_vencimiento||'' },
+  { label:'Vencimiento SRS', value: e => {
+      if(!e.carne_srs || !e.carne_srs_vencimiento) return e.carne_srs_vencimiento||'';
+      const hoy = new Date().toISOString().slice(0,10);
+      const dias = Math.round((new Date(e.carne_srs_vencimiento+'T00:00:00') - new Date(hoy+'T00:00:00')) / (1000*60*60*24));
+      return `${e.carne_srs_vencimiento} (${dias<=0 ? 'Vencido' : 'Activo'})`;
+    } },
   { label:'Carné de empleado', value: e => e.carne_empleado||'' },
   { label:'Estado', value: e => e.fecha_baja ? 'De baja' : (e.activo==='true' ? 'Activo' : 'Inactivo') }
 ];
