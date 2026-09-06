@@ -969,7 +969,7 @@ function renderEmpleados(){
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; actualizarBarraEmp(); return; }
   const todosMarcados = rows.length>0 && rows.every(e=>EMP_SELECCIONADOS.has(e.id));
   wrap.innerHTML = `<table><thead><tr>
-    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Seguro Social</th><th>Carné SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th>
+    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Seguro Social</th><th>Carné SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Visa</th><th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
@@ -979,6 +979,17 @@ function renderEmpleados(){
       <td>${nombreSala(e.sala_id)||'—'}</td>
       <td>${supervisorDeSala(e.sala_id)||'—'}</td>
       <td class="mono" style="font-size:12px;">${e.telefono||''}<br>${e.correo||''}</td>
+      <td>${e.departamento||'—'}</td>
+      <td>${e.municipio||'—'}</td>
+      <td class="mono">${e.fecha_ingreso||'—'}</td>
+      <td class="mono">${e.dui||'—'}</td>
+      <td class="mono">${e.isss||'—'}</td>
+      <td class="mono">${e.carne_semerc||'—'}</td>
+      <td class="mono">${e.hora_entrada && e.hora_salida ? e.hora_entrada+' - '+e.hora_salida : '—'}</td>
+      <td style="font-size:12px;">${e.dias_trabajo ? e.dias_trabajo.replace(/,/g,', ') : '—'}</td>
+      <td style="font-size:12px;">${e.dias_descanso ? e.dias_descanso.replace(/,/g,', ') : '—'}</td>
+      <td>${nombreBanco(e.banco_id)||'—'}</td>
+      <td class="mono">${e.numero_cuenta||'—'}</td>
       <td class="mono">${e.seguro_social||'—'}</td>
       <td class="mono">${e.carne_srs||'—'}</td>
       <td>${e.tipo_pago==='fijo' ? 'Salario fijo' : 'Por hora'}</td>
