@@ -195,7 +195,7 @@
         <div class="nav-item nav-sub" data-tab="afps" onclick="switchTab('afps')">↳ AFP</div>
         <div class="nav-item nav-sub" data-tab="bancos" onclick="switchTab('bancos')">↳ Bancos</div>
         <div class="nav-item nav-sub" data-tab="viaticos" onclick="switchTab('viaticos')">↳ Viáticos</div>
-        <div class="nav-item nav-sub" data-tab="registro_viaticos" onclick="switchTab('registro_viaticos')">↳ Registro de viáticos</div>
+        <div class="nav-item nav-sub" data-tab="registro_viaticos" onclick="switchTab('registro_viaticos')" style="padding-left:44px;">↳ Registro de viáticos</div>
         <div class="nav-item nav-sub" data-tab="herramientas" onclick="switchTab('herramientas')">↳ Herramientas</div>
         <div class="nav-item nav-sub" data-tab="incapacidades" onclick="switchTab('incapacidades')">↳ Incapacidades</div>
         <div class="nav-item nav-sub" data-tab="renuncias" onclick="switchTab('renuncias')">↳ Renuncias</div>
@@ -2386,7 +2386,7 @@ function openRegistroViaticoForm(){
         ${opcionesTipo.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes tipos creados — ve a "Empleados → Viáticos" y agrega el primero.</div>' : ''}
       </div>
       <div><label>Fecha</label><input id="rv_fecha" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
-      <div><label>Monto (USD)</label><input id="rv_monto" type="number" step="0.01"></div>
+      <div><label>Monto (USD) — tomado del tipo de viático</label><input id="rv_monto" type="number" step="0.01" readonly style="background:#F0F2F6;color:var(--ink-soft);"></div>
       <div class="full"><label>Motivo (opcional)</label><input id="rv_motivo" placeholder="Cubrió ruta especial, mandado, etc."></div>
     </div>
     <div class="form-actions">
@@ -2398,7 +2398,7 @@ function openRegistroViaticoForm(){
 function autocompletarMontoRegistroViatico(viaticoId){
   const v = DB.viaticos.find(x=>x.id===viaticoId);
   const campoMonto = document.getElementById('rv_monto');
-  if(v && campoMonto && !campoMonto.value) campoMonto.value = v.monto || '';
+  if(campoMonto) campoMonto.value = v ? (v.monto || '') : '';
 }
 
 async function submitRegistroViaticoForm(){
