@@ -144,6 +144,12 @@
   .combo-item:hover, .combo-item.hl{background:#EEF1F6;}
   .combo-empty{padding:8px 10px;font-size:12px;color:var(--ink-soft);}
   .nav-sub{padding-left:30px;font-size:13px;}
+  .nav-parent{display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+  .nav-parent .nav-label{display:flex;align-items:center;gap:10px;flex:1;}
+  .nav-caret{padding:2px 6px;font-size:10px;opacity:.65;transition:transform .15s;}
+  .nav-caret.open{transform:rotate(90deg);}
+  .nav-children{max-height:0;overflow:hidden;transition:max-height .18s ease;}
+  .nav-children.open{max-height:400px;}
 
   @media (max-width:820px){
     .shell{grid-template-columns:1fr;}
@@ -180,18 +186,30 @@
   <div class="shell">
     <div class="sidebar">
       <div class="brand">SEMERC<span><span class="conn-dot"></span>Conectado</span></div>
-      <div class="nav-item active" data-tab="empleados" onclick="switchTab('empleados')">👤 Empleados</div>
-      <div class="nav-item" data-tab="cuentas" onclick="switchTab('cuentas')">🏢 Cuentas</div>
-      <div class="nav-item nav-sub" data-tab="salas" onclick="switchTab('salas')">↳ Salas de venta</div>
-      <div class="nav-item" data-tab="supervisores" onclick="switchTab('supervisores')">🧑‍💼 Supervisores</div>
-      <div class="nav-item" data-tab="afps" onclick="switchTab('afps')">🏦 AFP</div>
-      <div class="nav-item" data-tab="bancos" onclick="switchTab('bancos')">💳 Bancos</div>
-      <div class="nav-item" data-tab="herramientas" onclick="switchTab('herramientas')">🧰 Herramientas</div>
+      <div class="nav-parent nav-item active" data-tab="empleados" onclick="switchTab('empleados')">
+        <span class="nav-label">👤 Empleados</span>
+        <span class="nav-caret" id="caret-empleados" onclick="toggleNavGroup(event,'grupo-empleados')">▶</span>
+      </div>
+      <div class="nav-children" id="grupo-empleados">
+        <div class="nav-item nav-sub" data-tab="afps" onclick="switchTab('afps')">↳ AFP</div>
+        <div class="nav-item nav-sub" data-tab="bancos" onclick="switchTab('bancos')">↳ Bancos</div>
+        <div class="nav-item nav-sub" data-tab="herramientas" onclick="switchTab('herramientas')">↳ Herramientas</div>
+        <div class="nav-item nav-sub" data-tab="incapacidades" onclick="switchTab('incapacidades')">↳ Incapacidades</div>
+        <div class="nav-item nav-sub" data-tab="renuncias" onclick="switchTab('renuncias')">↳ Renuncias</div>
+        <div class="nav-item nav-sub" data-tab="tipos_renuncia" onclick="switchTab('tipos_renuncia')" style="padding-left:44px;">↳ Tipos de renuncia</div>
+      </div>
+
+      <div class="nav-parent nav-item" data-tab="cuentas" onclick="switchTab('cuentas')">
+        <span class="nav-label">🏢 Cuentas</span>
+        <span class="nav-caret" id="caret-cuentas" onclick="toggleNavGroup(event,'grupo-cuentas')">▶</span>
+      </div>
+      <div class="nav-children" id="grupo-cuentas">
+        <div class="nav-item nav-sub" data-tab="salas" onclick="switchTab('salas')">↳ Salas de venta</div>
+        <div class="nav-item nav-sub" data-tab="supervisores" onclick="switchTab('supervisores')">↳ Supervisores</div>
+      </div>
+
       <div class="nav-item" data-tab="asistencia" onclick="switchTab('asistencia')">🎟️ Asistencia</div>
-      <div class="nav-item" data-tab="incapacidades" onclick="switchTab('incapacidades')">🩹 Incapacidades</div>
       <div class="nav-item" data-tab="planilla" onclick="switchTab('planilla')">💵 Planilla</div>
-      <div class="nav-item" data-tab="renuncias" onclick="switchTab('renuncias')">🚪 Renuncias</div>
-      <div class="nav-item nav-sub" data-tab="tipos_renuncia" onclick="switchTab('tipos_renuncia')">↳ Tipos de renuncia</div>
       <div class="sidebar-foot">
         <a href="#" onclick="cerrarSesion();return false;" style="color:#C6D0E2;">Cerrar sesión</a><br>
         <a href="#" onclick="olvidarToken();return false;" style="color:#C6D0E2;">Olvidar token guardado</a>
@@ -788,11 +806,34 @@ async function saveBancos(msg){
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 /* ============ Tabs ============ */
+const GRUPOS_NAV = {
+  empleados: ['afps','bancos','herramientas','incapacidades','renuncias','tipos_renuncia'],
+  cuentas: ['salas','supervisores']
+};
+
 function switchTab(name){
   document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelector(`.nav-item[data-tab="${name}"]`).classList.add('active');
+
+  // Si el tab pertenece a un grupo (Empleados/Cuentas), abre ese acordeón automáticamente
+  for(const [grupo, hijos] of Object.entries(GRUPOS_NAV)){
+    if(hijos.includes(name)){
+      const cont = document.getElementById('grupo-'+grupo);
+      const caret = document.getElementById('caret-'+grupo);
+      if(cont && !cont.classList.contains('open')){ cont.classList.add('open'); }
+      if(caret) caret.classList.add('open');
+    }
+  }
+}
+
+function toggleNavGroup(event, id){
+  event.stopPropagation();
+  const cont = document.getElementById(id);
+  const caret = event.currentTarget;
+  cont.classList.toggle('open');
+  caret.classList.toggle('open');
 }
 
 /* ============ Filters populate ============ */
