@@ -6,6 +6,7 @@
 <title>SEMERC · Control de planilla</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#EEF1F6;
@@ -211,7 +212,14 @@
         <div class="nav-item nav-sub" data-tab="supervisores" onclick="switchTab('supervisores')">↳ Supervisores</div>
       </div>
 
-      <div class="nav-item" data-tab="asistencia" onclick="switchTab('asistencia')">🎟️ Asistencia</div>
+      <div class="nav-parent nav-item" data-tab="asistencia" onclick="switchTab('asistencia')">
+        <span class="nav-label">🎟️ Asistencia</span>
+        <span class="nav-caret" id="caret-asistencia" onclick="toggleNavGroup(event,'grupo-asistencia')">▶</span>
+      </div>
+      <div class="nav-children" id="grupo-asistencia">
+        <div class="nav-item nav-sub" data-tab="reporte_asistencia" onclick="switchTab('reporte_asistencia')">↳ Reporte</div>
+        <div class="nav-item nav-sub" data-tab="dashboard_asistencia" onclick="switchTab('dashboard_asistencia')">↳ Dashboard</div>
+      </div>
       <div class="nav-item" data-tab="planilla" onclick="switchTab('planilla')">💵 Planilla</div>
       <div class="sidebar-foot">
         <a href="#" onclick="cerrarSesion();return false;" style="color:#C6D0E2;">Cerrar sesión</a><br>
@@ -523,7 +531,7 @@
         </div>
         <div class="panel">
           <h3 style="font-size:14px;margin-bottom:8px;">Sincronizar asistencia por WhatsApp (automático)</h3>
-          <div class="sub" style="margin-bottom:8px;">Pega la URL del CSV publicado (columnas: fecha_hora, teléfono, mensaje). Reconoce "0000 INICIO" (entrada), "1111 SALIDA" (salida), "0000 PERMISO" (completa el día normal solo) y "0000 ISSS" (completa el día y te avisa para que ingreses la incapacidad a mano).</div>
+          <div class="sub" style="margin-bottom:8px;">Pega la URL del CSV publicado (columnas: fecha_hora, teléfono, mensaje). Reconoce "0000 INICIO" (entrada), "1111 SALIDA" (salida), "0000 PERMISO" (completa el día normal solo) y "0000 ISSS" (completa el día y te avisa para que ingreses la incapacidad a mano). Una vez que un mensaje se sincroniza, no se vuelve a tocar — si corriges algo a mano en "Asistencia", esa corrección queda protegida en las próximas sincronizaciones.</div>
           <div class="toolbar">
             <input type="text" id="gformUrl" placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" style="flex:1;min-width:280px;">
             <button class="btn btn-add" onclick="sincronizarGoogleForm()">Sincronizar ahora</button>
@@ -547,6 +555,57 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
           </div>
           <div id="asisAlertas"></div>
           <div id="asisTableWrap"></div>
+        </div>
+      </div>
+
+      <!-- REPORTE DE ASISTENCIA -->
+      <div class="tab-section" id="tab-reporte_asistencia">
+        <div class="topbar">
+          <div><h2>Reporte de asistencia</h2><div class="sub">Consulta la asistencia por empleado, cuenta o sala de venta</div></div>
+        </div>
+        <div class="panel">
+          <div class="toolbar" style="margin-bottom:14px;">
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Ver por</label>
+              <select id="repAsisTipo" onchange="actualizarSelectorReporteAsistencia()">
+                <option value="empleado">Empleado</option>
+                <option value="cuenta">Cuenta</option>
+                <option value="sala">Sala de venta</option>
+              </select>
+            </div>
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Selecciona</label><select id="repAsisSelector"></select></div>
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Desde</label><input type="date" id="repAsisDesde"></div>
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Hasta</label><input type="date" id="repAsisHasta"></div>
+            <button class="btn btn-add" style="align-self:flex-end;" onclick="generarReporteAsistencia()">Generar reporte</button>
+          </div>
+          <div id="repAsisResumen"></div>
+          <div id="repAsisTableWrap" class="table-scroll"></div>
+        </div>
+      </div>
+
+      <!-- DASHBOARD DE ASISTENCIA -->
+      <div class="tab-section" id="tab-dashboard_asistencia">
+        <div class="topbar">
+          <div><h2>Dashboard</h2><div class="sub">Resumen por cuenta o sala de venta</div></div>
+        </div>
+        <div class="panel">
+          <div class="toolbar" style="margin-bottom:14px;">
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Ver</label>
+              <select id="dashTipo" onchange="actualizarSelectorDashboard()">
+                <option value="cuenta">Cuenta</option>
+                <option value="sala">Sala de venta</option>
+              </select>
+            </div>
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Selecciona</label><select id="dashSelector"></select></div>
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Desde</label><input type="date" id="dashDesde"></div>
+            <div><label style="font-size:12px;color:var(--ink-soft);display:block;margin-bottom:4px;">Hasta</label><input type="date" id="dashHasta"></div>
+            <button class="btn btn-add" style="align-self:flex-end;" onclick="generarDashboard()">Ver dashboard</button>
+          </div>
+          <div id="dashStats"></div>
+          <div class="panel" style="margin-top:16px;max-width:520px;">
+            <h3 style="font-size:14px;margin-bottom:10px;">Motivos de renuncia</h3>
+            <canvas id="dashChartMotivos" height="260"></canvas>
+            <div id="dashChartVacio" class="empty-state" style="display:none;">Sin renuncias en este rango.</div>
+          </div>
         </div>
       </div>
 
@@ -643,7 +702,7 @@ Carlos Ruiz, 2026-08-20, 09:00, 17:30"></textarea>
 const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
-const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv', viaticos:'data/viaticos.csv', registro_viaticos:'data/registro_viaticos.csv' };
+const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv', viaticos:'data/viaticos.csv', registro_viaticos:'data/registro_viaticos.csv', sync_procesados:'data/sync_procesados.csv' };
 const EMP_H = ['id','nombre','apellido','direccion','telefono','codigo_pais','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss','viatico_id','frecuencia_pago','descuentos'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas','nota'];
@@ -654,6 +713,7 @@ const AFP_H = ['id','nombre','activa'];
 const BANCO_H = ['id','nombre','activo'];
 const VIATICO_H = ['id','nombre','monto','activo'];
 const REG_VIA_H = ['id','empleado_id','viatico_id','fecha','monto','motivo'];
+const SYNC_PROC_H = ['clave'];
 const DIAS_SEMANA = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const DIAS_JS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado']; // Date.getDay(): 0=Domingo
 const PAISES_TELEFONO = [
@@ -727,8 +787,8 @@ const TIPO_RENUNCIA_H = ['id','nombre','activo'];
 
 const TOKEN_KEY = 'rebeca_gh_token';
 let TOKEN = '';
-let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[], tipos_renuncia:[], bancos:[], viaticos:[], registro_viaticos:[] };
-let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null, tipos_renuncia:null, bancos:null, viaticos:null, registro_viaticos:null };
+let DB = { empleados:[], herramientas:[], asistencia:[], cuentas:[], supervisores:[], salas:[], afps:[], incapacidades:[], tipos_renuncia:[], bancos:[], viaticos:[], registro_viaticos:[], sync_procesados:[] };
+let SHA = { empleados:null, herramientas:null, asistencia:null, cuentas:null, supervisores:null, salas:null, afps:null, incapacidades:null, tipos_renuncia:null, bancos:null, viaticos:null, registro_viaticos:null, sync_procesados:null };
 
 function storageAvailable(){
   try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; }
@@ -854,11 +914,12 @@ async function connect(silent){
   if(!t){ if(!silent){ errEl.textContent='Pega tu token primero.'; errEl.style.display='block'; } return; }
   TOKEN = t;
   try{
-    const [emp, herr, asis, cta, sup, sal, afp, inc, tr, bco, via, rv] = await Promise.all([
+    const [emp, herr, asis, cta, sup, sal, afp, inc, tr, bco, via, rv, sp] = await Promise.all([
       ghGetFile(FILES.empleados), ghGetFile(FILES.herramientas), ghGetFile(FILES.asistencia),
       ghGetFileOpcional(FILES.cuentas), ghGetFileOpcional(FILES.supervisores), ghGetFileOpcional(FILES.salas),
       ghGetFileOpcional(FILES.afps), ghGetFileOpcional(FILES.incapacidades), ghGetFileOpcional(FILES.tipos_renuncia),
-      ghGetFileOpcional(FILES.bancos), ghGetFileOpcional(FILES.viaticos), ghGetFileOpcional(FILES.registro_viaticos)
+      ghGetFileOpcional(FILES.bancos), ghGetFileOpcional(FILES.viaticos), ghGetFileOpcional(FILES.registro_viaticos),
+      ghGetFileOpcional(FILES.sync_procesados)
     ]);
     DB.empleados = parseCSV(emp.text); SHA.empleados = emp.sha;
     DB.herramientas = parseCSV(herr.text); SHA.herramientas = herr.sha;
@@ -872,6 +933,7 @@ async function connect(silent){
     DB.bancos = parseCSV(bco.text); SHA.bancos = bco.sha;
     DB.viaticos = parseCSV(via.text); SHA.viaticos = via.sha;
     DB.registro_viaticos = parseCSV(rv.text); SHA.registro_viaticos = rv.sha;
+    DB.sync_procesados = parseCSV(sp.text); SHA.sync_procesados = sp.sha;
 
     const remember = document.getElementById('rememberToken').checked;
     if(remember && storageAvailable()){
@@ -934,6 +996,9 @@ async function saveViaticos(msg){
 async function saveRegistroViaticos(msg){
   SHA.registro_viaticos = await ghPutFile(FILES.registro_viaticos, toCSV(REG_VIA_H, DB.registro_viaticos), SHA.registro_viaticos, msg);
 }
+async function saveSyncProcesados(msg){
+  SHA.sync_procesados = await ghPutFile(FILES.sync_procesados, toCSV(SYNC_PROC_H, DB.sync_procesados), SHA.sync_procesados, msg);
+}
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
@@ -964,7 +1029,8 @@ function pillCarneSRS(e){
 /* ============ Tabs ============ */
 const GRUPOS_NAV = {
   empleados: ['afps','bancos','viaticos','registro_viaticos','herramientas','incapacidades','renuncias','tipos_renuncia'],
-  cuentas: ['salas','supervisores']
+  cuentas: ['salas','supervisores'],
+  asistencia: ['reporte_asistencia','dashboard_asistencia']
 };
 
 function switchTab(name){
@@ -973,7 +1039,7 @@ function switchTab(name){
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelector(`.nav-item[data-tab="${name}"]`).classList.add('active');
 
-  // Si el tab pertenece a un grupo (Empleados/Cuentas), abre ese acordeón automáticamente
+  // Si el tab pertenece a un grupo (Empleados/Cuentas/Asistencia), abre ese acordeón automáticamente
   for(const [grupo, hijos] of Object.entries(GRUPOS_NAV)){
     if(hijos.includes(name)){
       const cont = document.getElementById('grupo-'+grupo);
@@ -982,6 +1048,9 @@ function switchTab(name){
       if(caret) caret.classList.add('open');
     }
   }
+
+  if(name==='reporte_asistencia') actualizarSelectorReporteAsistencia();
+  else if(name==='dashboard_asistencia') actualizarSelectorDashboard();
 }
 
 function toggleNavGroup(event, id){
@@ -1740,18 +1809,28 @@ async function sincronizarGoogleForm(){
     const cols = detectarColumnasWhatsapp(rows);
     if(!cols){ resEl.textContent='No se reconoce el formato del CSV. Revisa que tenga columnas de fecha/hora, teléfono y mensaje.'; return; }
 
+    // Mensajes que ya se sincronizaron antes (y quizás corregiste a mano después) — nunca se vuelven a tocar
+    const procesados = new Set(DB.sync_procesados.map(p=>p.clave));
+    const nuevosProcesados = [];
+
     const gruposEntradaSalida = {};
     const diasCompletarSolos = []; // permiso / isss
     const pendientesIncapacidad = [];
     const sinCoincidencia = new Set();
     const noReconocidos = [];
-    let sinFecha = 0;
+    let sinFecha = 0, yaProcesados = 0;
 
     rows.forEach(r=>{
-      const ts = parseTimestamp(r[cols.tsCol]);
+      const tsRaw = String(r[cols.tsCol]||'');
+      const telRaw = String(r[cols.telCol]||'');
+      const msgRaw = String(r[cols.msgCol]||'');
+      const clave = tsRaw + '|' + telRaw + '|' + msgRaw;
+      if(procesados.has(clave)){ yaProcesados++; return; }
+
+      const ts = parseTimestamp(tsRaw);
       if(!ts){ sinFecha++; return; }
 
-      const telefonoCrudo = String(r[cols.telCol]||'').replace(/\D/g,'');
+      const telefonoCrudo = telRaw.replace(/\D/g,'');
       const emp = DB.empleados.find(e=>{
         if(e.codigo_pais){
           const completo = e.codigo_pais + e.telefono;
@@ -1760,9 +1839,9 @@ async function sincronizarGoogleForm(){
         // Empleados sin país definido todavía (datos antiguos): compara los últimos 8 dígitos
         return telefonoCrudo.slice(-8) === (e.telefono||'').slice(-8);
       });
-      if(!emp){ sinCoincidencia.add(telefonoCrudo || '(vacío)'); return; }
+      if(!emp){ sinCoincidencia.add(telefonoCrudo || '(vacío)'); nuevosProcesados.push(clave); return; }
 
-      const mensaje = String(r[cols.msgCol]||'').trim();
+      const mensaje = msgRaw.trim();
       const partes = mensaje.split(/\s+/);
       const codigo = (partes[0]||'').toUpperCase();
       const palabra = (partes[1]||'').toUpperCase();
@@ -1772,25 +1851,28 @@ async function sincronizarGoogleForm(){
       const key = emp.id + '|' + fecha;
 
       if(codigo==='0000' && palabra==='INICIO'){
-        if(!gruposEntradaSalida[key]) gruposEntradaSalida[key] = { empId: emp.id, fecha, entradas:[], salidas:[] };
+        if(!gruposEntradaSalida[key]) gruposEntradaSalida[key] = { empId: emp.id, fecha, entradas:[], salidas:[], claves:[] };
         gruposEntradaSalida[key].entradas.push(hora);
+        gruposEntradaSalida[key].claves.push(clave);
       } else if(codigo==='1111' && palabra==='SALIDA'){
-        if(!gruposEntradaSalida[key]) gruposEntradaSalida[key] = { empId: emp.id, fecha, entradas:[], salidas:[] };
+        if(!gruposEntradaSalida[key]) gruposEntradaSalida[key] = { empId: emp.id, fecha, entradas:[], salidas:[], claves:[] };
         gruposEntradaSalida[key].salidas.push(hora);
+        gruposEntradaSalida[key].claves.push(clave);
       } else if(codigo==='0000' && palabra==='PERMISO'){
-        diasCompletarSolos.push({ empId: emp.id, fecha, nota:'Permiso (día completado automático)' });
+        diasCompletarSolos.push({ empId: emp.id, fecha, nota:'Permiso (día completado automático)', clave });
       } else if(codigo==='0000' && palabra==='ISSS'){
-        diasCompletarSolos.push({ empId: emp.id, fecha, nota:'ISSS (día completado automático)' });
+        diasCompletarSolos.push({ empId: emp.id, fecha, nota:'ISSS (día completado automático)', clave });
         pendientesIncapacidad.push({ emp, fecha });
       } else {
         noReconocidos.push(`${emp.nombre} ${emp.apellido}: "${mensaje.slice(0,40)}"`);
+        nuevosProcesados.push(clave);
       }
     });
 
     let completos=0, incompletos=0, diasAuto=0, sinHorarioDefinido=0;
 
     Object.values(gruposEntradaSalida).forEach(g=>{
-      if(g.entradas.length===0 || g.salidas.length===0){ incompletos++; return; }
+      if(g.entradas.length===0 || g.salidas.length===0){ incompletos++; return; } // se dejan pendientes para el próximo sync, no se marcan procesados
       const entrada = g.entradas.sort()[0];
       const salida = g.salidas.sort().slice(-1)[0];
       const horas = calcHoras(entrada, salida);
@@ -1801,11 +1883,12 @@ async function sincronizarGoogleForm(){
         DB.asistencia.push({ id: uid(), empleado_id: g.empId, fecha: g.fecha, hora_entrada: entrada, hora_salida: salida, horas_trabajadas: horas, nota:'' });
       }
       completos++;
+      nuevosProcesados.push(...g.claves); // ya se resolvió el día completo, no se vuelve a tocar
     });
 
     diasCompletarSolos.forEach(d=>{
       const emp = DB.empleados.find(e=>e.id===d.empId);
-      if(!emp || !emp.hora_entrada || !emp.hora_salida){ sinHorarioDefinido++; return; }
+      if(!emp || !emp.hora_entrada || !emp.hora_salida){ sinHorarioDefinido++; return; } // se deja pendiente, quizás luego le definan el horario
       const horas = calcHoras(emp.hora_entrada, emp.hora_salida);
       const existente = DB.asistencia.find(a=>a.empleado_id===d.empId && a.fecha===d.fecha);
       if(existente){
@@ -1814,10 +1897,15 @@ async function sincronizarGoogleForm(){
         DB.asistencia.push({ id: uid(), empleado_id: d.empId, fecha: d.fecha, hora_entrada: emp.hora_entrada, hora_salida: emp.hora_salida, horas_trabajadas: horas, nota: d.nota });
       }
       diasAuto++;
+      nuevosProcesados.push(d.clave);
     });
 
     if(completos>0 || diasAuto>0){
       await saveAsistencia(`Sincroniza ${completos+diasAuto} día(s) desde WhatsApp`);
+    }
+    if(nuevosProcesados.length>0){
+      nuevosProcesados.forEach(clave=>{ if(!procesados.has(clave)){ DB.sync_procesados.push({clave}); procesados.add(clave); } });
+      await saveSyncProcesados('Marca mensajes ya procesados');
     }
 
     let msg = `${completos} entrada/salida sincronizada(s) ✓ · ${diasAuto} día(s) completados por permiso/ISSS ✓`;
@@ -1827,6 +1915,7 @@ async function sincronizarGoogleForm(){
     if(sinCoincidencia.size>0) msg += ` · sin coincidir por teléfono: ${[...sinCoincidencia].join(', ')}`;
     if(noReconocidos.length>0) msg += ` · ${noReconocidos.length} mensaje(s) no reconocido(s): ${noReconocidos.slice(0,5).join(' · ')}`;
     if(sinFecha>0) msg += ` · ${sinFecha} fila(s) con fecha ilegible`;
+    if(yaProcesados>0) msg += ` · ${yaProcesados} mensaje(s) ya sincronizado(s) antes (sin tocar)`;
     resEl.textContent = msg;
     toast((completos+diasAuto)>0 ? 'Asistencia sincronizada ✓' : 'Nada nuevo para sincronizar','ok');
     renderAsistencia();
@@ -2019,6 +2108,144 @@ function fechaFueraDeHorario(emp, fechaStr){
   if(isNaN(fecha)) return false;
   const nombreDia = DIAS_JS[fecha.getDay()];
   return !diasTrabajoEmp.includes(nombreDia);
+}
+
+/* ============ REPORTE DE ASISTENCIA ============ */
+function actualizarSelectorReporteAsistencia(){
+  const tipo = val('repAsisTipo');
+  const sel = document.getElementById('repAsisSelector');
+  if(!sel) return;
+  if(tipo==='empleado'){
+    sel.innerHTML = DB.empleados.map(e=>`<option value="${e.id}">${e.nombre} ${e.apellido}</option>`).join('');
+  } else if(tipo==='cuenta'){
+    sel.innerHTML = DB.cuentas.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  } else {
+    sel.innerHTML = DB.salas.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  }
+}
+
+function generarReporteAsistencia(){
+  const tipo = val('repAsisTipo');
+  const selId = val('repAsisSelector');
+  const desde = val('repAsisDesde'), hasta = val('repAsisHasta');
+  if(!selId){ toast('Elige una opción para generar el reporte','err'); return; }
+
+  let empleados, tituloScope;
+  if(tipo==='empleado'){
+    empleados = DB.empleados.filter(e=>e.id===selId);
+    tituloScope = empleados[0] ? empleados[0].nombre+' '+empleados[0].apellido : '';
+  } else if(tipo==='cuenta'){
+    empleados = DB.empleados.filter(e=>e.cuenta_id===selId);
+    const c = DB.cuentas.find(x=>x.id===selId);
+    tituloScope = c ? c.nombre : '';
+  } else {
+    empleados = DB.empleados.filter(e=>e.sala_id===selId);
+    const s = DB.salas.find(x=>x.id===selId);
+    tituloScope = s ? s.nombre : '';
+  }
+
+  const filas = empleados.map(e=>{
+    let marcas = DB.asistencia.filter(a=>a.empleado_id===e.id);
+    if(desde) marcas = marcas.filter(a=>a.fecha>=desde);
+    if(hasta) marcas = marcas.filter(a=>a.fecha<=hasta);
+    const diasCompletos = marcas.filter(m=>diaEstaCompleto(e,m)===true).length;
+    const horasTotales = marcas.reduce((s,m)=>s+Number(m.horas_trabajadas||0),0);
+    const permisos = marcas.filter(m=>m.nota && m.nota.startsWith('Permiso')).length;
+    const isss = marcas.filter(m=>m.nota && m.nota.startsWith('ISSS')).length;
+    return { emp:e, diasConAsistencia: marcas.length, diasCompletos, horasTotales, permisos, isss };
+  });
+
+  document.getElementById('repAsisResumen').innerHTML = `<div class="sub" style="margin-bottom:10px;">Mostrando <strong>${empleados.length}</strong> empleado(s) de "${tituloScope}"${desde||hasta?' entre '+(desde||'...')+' y '+(hasta||'...'):''}.</div>`;
+
+  const wrap = document.getElementById('repAsisTableWrap');
+  if(filas.length===0){ wrap.innerHTML = '<div class="empty-state">No hay empleados para mostrar.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Empleado</th><th>Días con asistencia</th><th>Días completos</th><th>Horas totales</th><th>Permisos</th><th>ISSS</th></tr></thead><tbody>
+  ${filas.map(f=>`<tr>
+    <td><strong>${f.emp.nombre} ${f.emp.apellido}</strong></td>
+    <td class="mono">${f.diasConAsistencia}</td>
+    <td class="mono">${f.diasCompletos}</td>
+    <td class="mono">${f.horasTotales.toFixed(2)}h</td>
+    <td class="mono">${f.permisos}</td>
+    <td class="mono">${f.isss}</td>
+  </tr>`).join('')}
+  </tbody></table>`;
+}
+
+/* ============ DASHBOARD DE ASISTENCIA ============ */
+let DASH_CHART = null;
+function actualizarSelectorDashboard(){
+  const tipo = val('dashTipo');
+  const sel = document.getElementById('dashSelector');
+  if(!sel) return;
+  if(tipo==='cuenta'){
+    sel.innerHTML = DB.cuentas.map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  } else {
+    sel.innerHTML = DB.salas.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  }
+}
+
+function generarDashboard(){
+  const tipo = val('dashTipo');
+  const selId = val('dashSelector');
+  const desde = val('dashDesde'), hasta = val('dashHasta');
+  if(!selId){ toast('Elige una cuenta o sala primero','err'); return; }
+
+  let empleados, tituloScope;
+  if(tipo==='cuenta'){
+    empleados = DB.empleados.filter(e=>e.cuenta_id===selId);
+    const c = DB.cuentas.find(x=>x.id===selId);
+    tituloScope = c ? c.nombre : '';
+  } else {
+    empleados = DB.empleados.filter(e=>e.sala_id===selId);
+    const s = DB.salas.find(x=>x.id===selId);
+    tituloScope = s ? s.nombre : '';
+  }
+  const empleadosIds = new Set(empleados.map(e=>e.id));
+
+  let cumplieron = 0, permisos = 0;
+  empleados.forEach(e=>{
+    let marcas = DB.asistencia.filter(a=>a.empleado_id===e.id && (!desde||a.fecha>=desde) && (!hasta||a.fecha<=hasta));
+    permisos += marcas.filter(m=>m.nota && m.nota.startsWith('Permiso')).length;
+    if(marcas.length>0 && marcas.every(m=>diaEstaCompleto(e,m)===true)) cumplieron++;
+  });
+
+  let incapacidades = DB.incapacidades.filter(inc=>empleadosIds.has(inc.empleado_id));
+  if(desde) incapacidades = incapacidades.filter(inc=>inc.fecha_inicio>=desde);
+  if(hasta) incapacidades = incapacidades.filter(inc=>inc.fecha_inicio<=hasta);
+
+  const renuncias = empleados.filter(e=>e.fecha_baja && (!desde||e.fecha_baja>=desde) && (!hasta||e.fecha_baja<=hasta));
+
+  document.getElementById('dashStats').innerHTML = `
+    <div class="sub" style="margin-bottom:12px;">Mostrando datos de <strong>"${tituloScope}"</strong>${desde||hasta?' entre '+(desde||'...')+' y '+(hasta||'...'):''}.</div>
+    <div class="stat-row">
+      <div class="stat"><div class="n">${empleados.length}</div><div class="l">Empleados</div></div>
+      <div class="stat"><div class="n">${cumplieron}</div><div class="l">Cumplieron su horario</div></div>
+      <div class="stat"><div class="n">${permisos}</div><div class="l">Permisos</div></div>
+      <div class="stat"><div class="n">${incapacidades.length}</div><div class="l">Incapacidades</div></div>
+      <div class="stat"><div class="n">${renuncias.length}</div><div class="l">Renuncias</div></div>
+    </div>`;
+
+  const motivosConteo = {};
+  renuncias.forEach(e=>{
+    const nombre = nombreTipoRenuncia(e.tipo_renuncia_id) || 'Sin especificar';
+    motivosConteo[nombre] = (motivosConteo[nombre]||0) + 1;
+  });
+  const etiquetas = Object.keys(motivosConteo);
+  const valores = Object.values(motivosConteo);
+
+  const canvas = document.getElementById('dashChartMotivos');
+  const vacioEl = document.getElementById('dashChartVacio');
+  if(DASH_CHART){ DASH_CHART.destroy(); DASH_CHART = null; }
+  if(etiquetas.length===0){
+    canvas.style.display = 'none'; vacioEl.style.display = 'block';
+  } else {
+    canvas.style.display = 'block'; vacioEl.style.display = 'none';
+    DASH_CHART = new Chart(canvas.getContext('2d'), {
+      type: 'bar',
+      data: { labels: etiquetas, datasets: [{ label: 'Renuncias', data: valores, backgroundColor: '#4C6FFF' }] },
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+  }
 }
 
 function llenarRangoPlanilla(tipo){
