@@ -564,7 +564,7 @@ const OWNER = 'dsantosg94';
 const REPO = 'Rebeca-rrhh';
 const BRANCH = 'main';
 const FILES = { empleados:'data/empleados.csv', herramientas:'data/herramientas.csv', asistencia:'data/asistencia.csv', cuentas:'data/cuentas.csv', supervisores:'data/supervisores.csv', salas:'data/salas.csv', afps:'data/afps.csv', incapacidades:'data/incapacidades.csv', tipos_renuncia:'data/tipos_renuncia.csv', bancos:'data/bancos.csv' };
-const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_empleado','seguro_social','afp_id','numero_visa','visa_vencimiento','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
+const EMP_H = ['id','nombre','apellido','direccion','telefono','correo','fecha_nacimiento','empresa_cliente','es_supervisor','tipo_pago','tarifa','activo','cuenta_id','fecha_baja','motivo_baja','sala_id','carne_srs','carne_srs_vencimiento','carne_empleado','seguro_social','afp_id','tipo_renuncia_id','fecha_ingreso','banco_id','numero_cuenta','departamento','municipio','hora_entrada','hora_salida','dias_trabajo','dias_descanso','dui','carne_semerc','isss'];
 const HERR_H = ['id','nombre','tipo','empleado_id','fecha_asignacion','fecha_devolucion','estado'];
 const ASIS_H = ['id','empleado_id','fecha','hora_entrada','hora_salida','horas_trabajadas'];
 const CUENTA_H = ['id','nombre','codigo','contacto_principal','telefono','direccion','activa'];
@@ -961,18 +961,6 @@ function obtenerEmpleadosFiltrados(){
   return rows;
 }
 
-function pillVisa(e){
-  if(!e.numero_visa) return '—';
-  if(!e.visa_vencimiento) return `<span class="pill pill-gray">Carné ${e.numero_visa} (sin fecha)</span>`;
-  const hoy = new Date().toISOString().slice(0,10);
-  const msPorDia = 1000*60*60*24;
-  const diasRestantes = Math.round((new Date(e.visa_vencimiento+'T00:00:00') - new Date(hoy+'T00:00:00')) / msPorDia);
-  if(diasRestantes <= 0) return `<span class="pill pill-red">Vencido ${e.visa_vencimiento}</span>`;
-  if(diasRestantes <= 30) return `<span class="pill pill-amber">Vence ${e.visa_vencimiento}</span>`;
-  if(diasRestantes <= 60) return `<span class="pill pill-yellow">Vence ${e.visa_vencimiento}</span>`;
-  return `<span class="pill pill-green">Vigente ${e.visa_vencimiento}</span>`;
-}
-
 const EMP_SELECCIONADOS = new Set();
 
 function renderEmpleados(){
@@ -983,7 +971,7 @@ function renderEmpleados(){
   if(rows.length===0){ wrap.innerHTML = '<div class="empty-state">Sin empleados que mostrar. Agrega el primero con "+ Nuevo empleado".</div>'; actualizarBarraEmp(); return; }
   const todosMarcados = rows.length>0 && rows.every(e=>EMP_SELECCIONADOS.has(e.id));
   wrap.innerHTML = `<table><thead><tr>
-    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Edad</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Seguro Social</th><th>Carné SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Carné ingreso</th><th>Estado</th>
+    <th class="col-actions"><input type="checkbox" ${todosMarcados?'checked':''} onchange="toggleTodosEmp(this.checked)"></th><th>Nombre</th><th>Edad</th><th>Cuenta</th><th>Sala de venta</th><th>Supervisor</th><th>Contacto</th><th>Departamento</th><th>Municipio</th><th>Fecha ingreso</th><th>DUI</th><th>ISSS</th><th>Carné SEMERC</th><th>Horario</th><th>Días trabajo</th><th>Días descanso</th><th>Banco</th><th>N° cuenta</th><th>Seguro Social</th><th>Carné SRS</th><th>Vence SRS</th><th>Tipo de pago</th><th>Tarifa</th><th>Estado</th>
   </tr></thead><tbody>
   ${rows.map(e=>`
     <tr>
@@ -1007,9 +995,9 @@ function renderEmpleados(){
       <td class="mono">${e.numero_cuenta||'—'}</td>
       <td class="mono">${e.seguro_social||'—'}</td>
       <td class="mono">${e.carne_srs||'—'}</td>
+      <td class="mono">${e.carne_srs_vencimiento||'—'}</td>
       <td>${e.tipo_pago==='mensual' ? 'Salario mensual' : 'Por día'}</td>
       <td class="mono">$${Number(e.tarifa||0).toLocaleString()}</td>
-      <td>${pillVisa(e)}</td>
       <td>${e.fecha_baja ? '<span class="pill pill-red">De baja</span>' : (e.activo==='true' ? '<span class="pill pill-green">Activo</span>' : '<span class="pill pill-red">Inactivo</span>')}</td>
     </tr>`).join('')}
   </tbody></table>`;
@@ -1184,12 +1172,9 @@ function openEmpForm(id){
         ${comboHTML('m_afp', opcionesAfp, e?.afp_id||'', afpSel?.nombre||'', 'Buscar AFP...')}
         ${afpsActivas.length===0 ? '<div class="sub" style="margin-top:4px;">Todavía no tienes AFP creadas — ve a la pestaña "AFP" y agrega la primera.</div>' : ''}
       </div>
-      <div><label>Carné de SRS (manipulación de alimentos)</label><input id="m_carne_srs" value="${e?.carne_srs||''}" placeholder="Número o dejar vacío"></div>
+      <div><label>Carné de SRS (manipulación de alimentos)</label><input id="m_carne_srs" value="${e?.carne_srs||''}" placeholder="Número o dejar vacío" oninput="document.getElementById('m_srs_fecha').disabled=!this.value; if(!this.value) document.getElementById('m_srs_fecha').value='';"></div>
+      <div><label>Vencimiento del carné SRS</label><input id="m_srs_fecha" type="date" value="${e?.carne_srs_vencimiento||''}" ${e?.carne_srs ? '' : 'disabled'}></div>
       <div><label>Carné de empleado</label><input id="m_carne_empleado" value="${e?.carne_empleado||''}" placeholder="Aún no emitido si está vacío"></div>
-      <div><label>Carné de ingreso (numérico)</label><input id="m_numero_visa" value="${e?.numero_visa||''}" inputmode="numeric" placeholder="Número o dejar vacío" oninput="this.value=this.value.replace(/\D/g,''); document.getElementById('m_visa_fecha_wrap').style.display=this.value?'block':'none';"></div>
-      <div class="full" id="m_visa_fecha_wrap" style="display:${e?.numero_visa?'block':'none'};">
-        <label>Fecha de vencimiento del carné</label><input id="m_visa_vencimiento" type="date" value="${e?.visa_vencimiento||''}">
-      </div>
       <div class="full" style="margin-top:6px;">
         ${e?.fecha_baja
           ? `<div class="sub" style="background:#FBEAE8;color:var(--red);padding:10px 12px;border-radius:8px;">Este empleado fue dado de baja el ${e.fecha_baja}${nombreTipoRenuncia(e.tipo_renuncia_id) ? ' ('+nombreTipoRenuncia(e.tipo_renuncia_id)+')' : ''}. No se puede reactivar — si vuelve a trabajar contigo, crea un empleado nuevo para no perder el historial.</div>
@@ -1241,9 +1226,8 @@ async function submitEmpForm(id){
     es_supervisor: 'false',
     tipo_pago: val('m_tipopago'), tarifa: val('m_tarifa'),
     seguro_social: val('m_seguro_social'), afp_id: comboValor('m_afp'),
-    carne_srs: val('m_carne_srs'), carne_empleado: val('m_carne_empleado'),
-    numero_visa: val('m_numero_visa'),
-    visa_vencimiento: val('m_numero_visa') ? val('m_visa_vencimiento') : '',
+    carne_srs: val('m_carne_srs'), carne_srs_vencimiento: val('m_carne_srs') ? val('m_srs_fecha') : '',
+    carne_empleado: val('m_carne_empleado'),
     activo: checkboxActivo ? (checkboxActivo.checked ? 'true' : 'false') : 'false'
   };
   const existente = DB.empleados.find(x=>x.id===id);
@@ -2463,8 +2447,8 @@ const COLUMNAS_EMPLEADOS = [
   { label:'Seguro Social', value: e => e.seguro_social||'' },
   { label:'AFP', value: e => { const a = DB.afps.find(x=>x.id===e.afp_id); return a ? a.nombre : ''; } },
   { label:'Carné SRS', value: e => e.carne_srs||'' },
+  { label:'Vencimiento SRS', value: e => e.carne_srs_vencimiento||'' },
   { label:'Carné de empleado', value: e => e.carne_empleado||'' },
-  { label:'Carné de ingreso', value: e => e.numero_visa ? `${e.numero_visa} (vence ${e.visa_vencimiento||'sin fecha'})` : '' },
   { label:'Estado', value: e => e.fecha_baja ? 'De baja' : (e.activo==='true' ? 'Activo' : 'Inactivo') }
 ];
 const COLUMNAS_HERRAMIENTAS = [
